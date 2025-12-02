@@ -1,0 +1,5 @@
+{
+  "name": "Pine-reader",
+  "description": "An accessible, high-contrast document reader optimized for blind and low-vision users. Features local PDF parsing, text-to-speech, and Gemini AI integration for enhanced document understanding and structure recovery.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Accessibility Focus Rings */
+*:focus-visible {
+  outline: 4px solid #1a73e8;
+  outline-offset: 2px;
+}
+.high-contrast *:focus-visible {
+  outline: 4px solid #FFFF00;
+  outline-offset: 2px;
+}
+
+/* Semantic Content Styling for generated HTML */
+.semantic-content h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; }
+.semantic-content h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+.semantic-content h3 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; }
+.semantic-content p { margin-bottom: 1em; line-height: 1.6; text-align: justify; }
+
+/* Table Styling */
+.semantic-content table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  margin: 1.5em 0; 
+  font-size: 0.9em;
+}
+.semantic-content th, .semantic-content td { 
+  border: 1px solid #ccc; 
+  padding: 8px 12px; 
+  text-align: left; 
+}
+.semantic-content th { background-color: #f3f4f6; font-weight: bold; }
+.dark .semantic-content th { background-color: #374151; border-color: #4b5563; }
+.dark .semantic-content td { border-color: #4b5563; }
+
+/* High Contrast Table Overrides */
+.high-contrast .semantic-content table, 
+.high-contrast .semantic-content th, 
+.high-contrast .semantic-content td {
+  border: 2px solid #FFFF00;
+  background: black;
+  color: #FFFF00;
+}
+
+.semantic-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+.semantic-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
+.semantic-content a { color: #1a73e8; text-decoration: underline; font-weight: 500; }
+.high-contrast .semantic-content a { color: #00FF00; }
+
+/* Safe area padding for bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
