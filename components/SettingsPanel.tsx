@@ -1,17 +1,19 @@
+
 import React, { useState } from 'react';
-import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus } from 'lucide-react';
+import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Info } from 'lucide-react';
 import { AppSettings, ColorMode } from '../types';
 import { Button } from './ui/Button';
+import { AVAILABLE_VOICES } from '../constants';
 import clsx from 'clsx';
 
 interface SettingsPanelProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
-  // No longer needs onClose as it's a tab
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdateSettings }) => {
   const [feedbackEmail, setFeedbackEmail] = useState('');
+  const [feedbackSubject, setFeedbackSubject] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState('');
   
   const handleChange = (key: keyof AppSettings, value: any) => {
@@ -20,8 +22,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
 
   const handleFeedback = (e: React.FormEvent) => {
     e.preventDefault();
-    const subject = encodeURIComponent("Feedback for Pine-reader");
-    const body = encodeURIComponent(`Message:\n${feedbackMsg}\n\nContact Email: ${feedbackEmail}`);
+    const subject = encodeURIComponent(`Pine-reader Feedback: ${feedbackSubject}`);
+    const body = encodeURIComponent(
+`User Email: ${feedbackEmail}
+
+Subject: ${feedbackSubject}
+
+Message:
+${feedbackMsg}
+
+--------------------------------
+Sent via Pine-reader App`
+    );
     window.location.href = `mailto:hello.jogi@proton.me?subject=${subject}&body=${body}`;
   };
 
@@ -134,9 +146,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
            <h3 className="font-bold text-xl flex items-center gap-2">
               <Volume2 className="w-6 h-6" /> Text-to-Speech Config
            </h3>
-           <p className="text-sm opacity-70 mb-4">Adjusts styling for future read-aloud features.</p>
+           <p className="text-sm opacity-70 mb-4">Select your preferred voice and reading speed.</p>
 
            <div className="space-y-4">
+               <div>
+                  <label htmlFor="voice-select" className="block font-medium mb-2">Voice</label>
+                  <select
+                    id="voice-select"
+                    value={settings.voiceName || 'Kore'}
+                    onChange={(e) => handleChange('voiceName', e.target.value)}
+                    className={clsx(
+                      "w-full p-3 rounded-lg border appearance-none",
+                      settings.colorMode === ColorMode.HIGH_CONTRAST 
+                        ? "bg-black border-yellow-300 text-yellow-300"
+                        : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    )}
+                  >
+                    {AVAILABLE_VOICES.map(voice => (
+                      <option key={voice.id} value={voice.id}>{voice.name}</option>
+                    ))}
+                  </select>
+               </div>
+
                <div>
                   <label className="block font-medium mb-2">Speed ({settings.speechRate.toFixed(1)}x)</label>
                   <input 
@@ -149,25 +180,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                       className="w-full h-4 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700 accent-blue-600"
                   />
                </div>
-               <div>
-                  <label className="block font-medium mb-2">Pitch ({settings.pitch.toFixed(1)})</label>
-                  <input 
-                      type="range" 
-                      min="0.5" 
-                      max="1.5" 
-                      step="0.1" 
-                      value={settings.pitch}
-                      onChange={(e) => handleChange('pitch', parseFloat(e.target.value))}
-                      className="w-full h-4 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700 accent-blue-600"
-                  />
-               </div>
            </div>
       </section>
 
       {/* Feedback Section */}
       <section className={clsx(sectionClass, sectionStyle)}>
            <h3 className="font-bold text-xl flex items-center gap-2">
-              <Mail className="w-6 h-6" /> Feedback & Support
+              <Mail className="w-6 h-6" /> Send Feedback
            </h3>
            <p className="text-sm opacity-70 mb-4">Report bugs or send suggestions to the developer.</p>
            
@@ -180,6 +199,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                       value={feedbackEmail}
                       onChange={(e) => setFeedbackEmail(e.target.value)}
                       placeholder="you@example.com"
+                      className={clsx(
+                          "w-full p-3 rounded-lg border",
+                          settings.colorMode === ColorMode.HIGH_CONTRAST 
+                            ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700"
+                            : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                      )}
+                      required
+                  />
+              </div>
+
+              <div>
+                  <label htmlFor="subject" className="block font-medium mb-1">Subject</label>
+                  <input 
+                      id="subject"
+                      type="text" 
+                      value={feedbackSubject}
+                      onChange={(e) => setFeedbackSubject(e.target.value)}
+                      placeholder="Brief topic..."
                       className={clsx(
                           "w-full p-3 rounded-lg border",
                           settings.colorMode === ColorMode.HIGH_CONTRAST 
@@ -216,6 +253,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   icon={<Send className="w-5 h-5" />}
               />
            </form>
+      </section>
+
+      {/* About Section */}
+      <section className={clsx(sectionClass, sectionStyle)}>
+           <h3 className="font-bold text-xl flex items-center gap-2">
+              <Info className="w-6 h-6" /> About Pine-reader
+           </h3>
+           
+           <div className="space-y-4">
+              <div>
+                <p className="font-bold text-lg">The-Pineapple Company</p>
+                <p className="text-sm opacity-70">Version 1.0.0</p>
+              </div>
+              
+              <p className="opacity-90 leading-relaxed">
+                An accessible, high-contrast document reader optimized for blind and low-vision users. 
+                Features local PDF parsing, text-to-speech readiness, and AI integration for enhanced document structure recovery.
+              </p>
+
+              <div className={clsx(
+                  "p-4 rounded-lg border mt-4",
+                  settings.colorMode === ColorMode.HIGH_CONTRAST
+                    ? "border-yellow-300" 
+                    : "bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600"
+              )}>
+                  <h4 className="font-bold mb-3">Contact Developer</h4>
+                  <ul className="space-y-3 text-base">
+                    <li className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <span className="opacity-80 flex items-center gap-2"><Mail className="w-4 h-4" /> Email:</span>
+                      <a href="mailto:hello.jogi@proton.me" className="underline font-medium hover:opacity-80">hello.jogi@proton.me</a>
+                    </li>
+                    <li className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <span className="opacity-80 flex items-center gap-2"><Phone className="w-4 h-4" /> Mobile:</span>
+                      <a href="tel:+919611249874" className="underline font-medium hover:opacity-80">+91 9611249874</a>
+                    </li>
+                  </ul>
+              </div>
+           </div>
       </section>
     </div>
   );

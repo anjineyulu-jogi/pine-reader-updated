@@ -25,8 +25,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, c
   );
 
   return (
-    <div className={clsx("fixed bottom-0 left-0 w-full z-50 shadow-lg pb-safe", navClass)}>
-      <div className="flex justify-around items-stretch h-16">
+    // role="none" ensures screen readers ignore this container grouping and find the buttons directly
+    <div 
+      className={clsx("fixed bottom-0 left-0 w-full z-50 shadow-lg pb-safe", navClass)}
+      role="none"
+    >
+      <div className="flex justify-around items-stretch h-16" role="none">
         <button
           type="button"
           onClick={() => onTabChange(Tab.DOCUMENTS)}

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+
+import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import { PageData, AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
 import { THEME_CLASSES } from '../constants';
@@ -7,21 +8,46 @@ interface ReaderProps {
   page: PageData | undefined;
   settings: AppSettings;
   isProcessing: boolean;
+  initialScrollOffset?: number;
+  onScroll?: (scrollTop: number) => void;
 }
 
 export const Reader: React.FC<ReaderProps> = ({
   page,
   settings,
-  isProcessing
+  isProcessing,
+  initialScrollOffset = 0,
+  onScroll
 }) => {
   const containerRef = useRef<HTMLElement>(null);
+  const scrollTimeoutRef = useRef<any>(null);
 
-  // Auto focus content on page change for Screen Readers
-  useEffect(() => {
+  // Restore scroll position when page changes or component mounts
+  useLayoutEffect(() => {
     if (containerRef.current) {
-        containerRef.current.focus();
+        // Restore previous scroll position
+        containerRef.current.scrollTop = initialScrollOffset;
+        
+        // Ensure focus for accessibility navigation
+        // We use preventScroll: true because we just manually set scrollTop
+        containerRef.current.focus({ preventScroll: true });
     }
-  }, [page]);
+  }, [page?.pageNumber, initialScrollOffset]);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+      const target = e.currentTarget;
+      
+      // Debounce the scroll callback to prevent excessive state updates/storage writes
+      if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+      }
+
+      scrollTimeoutRef.current = setTimeout(() => {
+          if (onScroll) {
+              onScroll(target.scrollTop);
+          }
+      }, 200);
+  };
 
   if (!page) return null;
 
@@ -37,6 +63,8 @@ export const Reader: React.FC<ReaderProps> = ({
 
   return (
     <main 
+        ref={containerRef}
+        onScroll={handleScroll}
         className={clsx(
             "flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth",
             THEME_CLASSES[settings.colorMode]
@@ -51,7 +79,6 @@ export const Reader: React.FC<ReaderProps> = ({
         )}
 
         <article 
-            ref={containerRef}
             className={pageContainerClass}
             style={{ 
                 fontSize: `${settings.fontSize}rem`,

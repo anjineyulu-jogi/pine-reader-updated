@@ -1,9 +1,13 @@
+
 import { Chat } from "@google/genai";
 
 // Document structure types
 export enum DocumentType {
   PDF = 'PDF',
   TXT = 'TXT',
+  DOCX = 'DOCX',
+  XLSX = 'XLSX',
+  IMAGE = 'IMAGE',
   UNKNOWN = 'UNKNOWN'
 }
 
@@ -39,7 +43,8 @@ export interface AppSettings {
   colorMode: ColorMode;
   speechRate: number; // Kept for future use if needed, though manual speech is removed
   pitch: number;
-  viewMode: 'original' | 'accessible'; 
+  viewMode: 'original' | 'accessible';
+  voiceName: string; // New: TTS Voice Selection
 }
 
 // Navigation Types

@@ -1,15 +1,23 @@
 
 const DB_NAME = 'PineReaderDB';
 const STORE_FILES = 'files';
-const DB_VERSION = 1;
-const KEY_LAST_OPENED = 'last_opened_file';
+const DB_VERSION = 2; // Incremented version for schema change
 
 // Interface for what we store in IndexedDB
-interface StoredFileEntry {
-    id: string; // strict key
+export interface StoredFileEntry {
+    id: string; // strict key (filename)
     file: File | Blob;
     name: string;
     type: string;
+    size: number;
+    lastOpened: number;
+}
+
+export interface StoredFileMetadata {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
     lastOpened: number;
 }
 
@@ -40,10 +48,11 @@ export const saveRecentFileToStorage = async (file: File): Promise<void> => {
             const store = tx.objectStore(STORE_FILES);
             
             const entry: StoredFileEntry = {
-                id: KEY_LAST_OPENED,
+                id: file.name, // Use filename as unique ID
                 file: file,
                 name: file.name,
                 type: file.type,
+                size: file.size,
                 lastOpened: Date.now()
             };
 
@@ -56,19 +65,45 @@ export const saveRecentFileToStorage = async (file: File): Promise<void> => {
     }
 };
 
-// Retrieve file from IndexedDB
-export const getRecentFileFromStorage = async (): Promise<File | null> => {
+// Get list of recent files (Metadata only)
+export const getRecentFilesList = async (): Promise<StoredFileMetadata[]> => {
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_FILES, 'readonly');
             const store = tx.objectStore(STORE_FILES);
-            const request = store.get(KEY_LAST_OPENED);
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                const results = request.result as StoredFileEntry[];
+                const metadata = results.map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    type: r.type,
+                    size: r.size,
+                    lastOpened: r.lastOpened
+                })).sort((a, b) => b.lastOpened - a.lastOpened); // Sort by newest
+                resolve(metadata);
+            };
+            request.onerror = () => resolve([]); 
+        });
+    } catch (e) {
+        return [];
+    }
+};
+
+// Retrieve specific file from IndexedDB
+export const getStoredFile = async (id: string): Promise<File | null> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_FILES, 'readonly');
+            const store = tx.objectStore(STORE_FILES);
+            const request = store.get(id);
             
             request.onsuccess = () => {
                 const result = request.result as StoredFileEntry;
                 if (result && result.file) {
-                    // Reconstruct a File object (needed because IDB might yield a Blob)
                     const file = new File([result.file], result.name, { 
                         type: result.type,
                         lastModified: result.lastOpened 
@@ -78,20 +113,46 @@ export const getRecentFileFromStorage = async (): Promise<File | null> => {
                     resolve(null);
                 }
             };
-            request.onerror = () => resolve(null); // Fail gracefully
+            request.onerror = () => resolve(null);
         });
     } catch (e) {
         return null;
     }
 };
 
+// Backward compatibility (gets the most recent file)
+export const getRecentFileFromStorage = async (): Promise<File | null> => {
+    const list = await getRecentFilesList();
+    if (list.length > 0) {
+        return getStoredFile(list[0].id);
+    }
+    return null;
+};
+
 // Save page progress to LocalStorage
-export const saveReadingProgress = (fileName: string, pageIndex: number) => {
-    localStorage.setItem(`pine_progress_${fileName}`, pageIndex.toString());
+export const saveReadingProgress = (fileName: string, pageIndex: number, scrollTop: number = 0) => {
+    const data = { pageIndex, scrollTop };
+    localStorage.setItem(`pine_progress_${fileName}`, JSON.stringify(data));
 };
 
 // Get page progress from LocalStorage
-export const getReadingProgress = (fileName: string): number => {
+export const getReadingProgress = (fileName: string): { pageIndex: number, scrollTop: number } => {
     const stored = localStorage.getItem(`pine_progress_${fileName}`);
-    return stored ? parseInt(stored, 10) : 0;
+    if (!stored) return { pageIndex: 0, scrollTop: 0 };
+    
+    try {
+        if (!stored.trim().startsWith('{')) {
+            const pageIndex = parseInt(stored, 10);
+            return { pageIndex: isNaN(pageIndex) ? 0 : pageIndex, scrollTop: 0 };
+        }
+        
+        const parsed = JSON.parse(stored);
+        return { 
+            pageIndex: typeof parsed.pageIndex === 'number' ? parsed.pageIndex : 0, 
+            scrollTop: typeof parsed.scrollTop === 'number' ? parsed.scrollTop : 0 
+        };
+    } catch (e) {
+        console.warn("Error parsing reading progress", e);
+        return { pageIndex: 0, scrollTop: 0 };
+    }
 };
