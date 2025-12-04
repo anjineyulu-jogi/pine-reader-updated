@@ -54,12 +54,4 @@ export enum Tab {
   SETTINGS = 'SETTINGS'
 }
 
-// PDF.js global declaration
-declare global {
-  const pdfjsLib: any;
-  interface Window {
-    pdfjsLib: any;
-  }
-}
-
 export type { Chat };

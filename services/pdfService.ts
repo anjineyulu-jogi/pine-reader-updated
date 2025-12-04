@@ -1,6 +1,11 @@
+
 import { ParsedDocument, DocumentType, PageData } from "../types";
 import mammoth from "mammoth";
 import * as XLSX from 'xlsx';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+
+// Use CDN worker for reliable online deployment and preview
+GlobalWorkerOptions.workerSrc = "https://aistudiocdn.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs";
 
 export interface PageContent {
     pageNumber: number;
@@ -10,8 +15,8 @@ export interface PageContent {
 export const parsePDF = async (file: File): Promise<ParsedDocument> => {
   const arrayBuffer = await file.arrayBuffer();
   
-  // Load the document using the global pdfjsLib
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  // Load the document using the local pdfjsLib
+  const loadingTask = getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
 
   const pages: PageData[] = [];

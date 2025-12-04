@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Chat, Modality } from "@google/genai";
+import { GoogleGenAI, Chat, Modality, Content } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -29,22 +29,41 @@ export const transformTextToSemanticHtml = async (text: string): Promise<string>
   }
 };
 
+export interface PineXOptions {
+  enableSearch?: boolean;
+  enableThinking?: boolean;
+  context?: string;
+  history?: Content[];
+}
+
 /**
  * Create a chat session for PineX
- * Using gemini-2.5-flash for speed and reliability
+ * Supports optional Search Grounding and Thinking Mode
  */
-export const createChatSession = (context?: string): Chat => {
+export const createChatSession = (options: PineXOptions): Chat => {
     let systemInstruction = "You are PineX, an intelligent assistant for the Pine-reader app. You help blind users understand documents. Answer concisely. Do not use markdown tables, use lists instead.";
     
-    if (context) {
-        systemInstruction += `\n\nCONTEXT FROM CURRENT DOCUMENT PAGE:\n${context.substring(0, 30000)}`;
+    if (options.context) {
+        systemInstruction += `\n\nCONTEXT FROM CURRENT DOCUMENT PAGE:\n${options.context.substring(0, 30000)}`;
+    }
+
+    const config: any = {
+        systemInstruction: systemInstruction,
+    };
+
+    if (options.enableSearch) {
+        config.tools = [{ googleSearch: {} }];
+    }
+
+    if (options.enableThinking) {
+        // Set thinking budget for Deep Thinking mode (Gemini 2.5 feature)
+        config.thinkingConfig = { thinkingBudget: 2048 }; 
     }
 
     return ai.chats.create({
         model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: systemInstruction,
-        }
+        config: config,
+        history: options.history
     });
 };
 
