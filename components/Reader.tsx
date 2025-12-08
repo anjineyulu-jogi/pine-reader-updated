@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import { PageData, AppSettings, ColorMode, Bookmark } from '../types';
 import clsx from 'clsx';
-import { THEME_CLASSES } from '../constants';
+import { THEME_CLASSES, SUPPORTED_LANGUAGES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { ReaderProps } from '../types';
 
@@ -28,6 +28,9 @@ export const Reader: React.FC<ReaderProps> = ({
   const isLongPressActiveRef = useRef(false);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<any>(null);
+  
+  // 3-Finger Gesture State
+  const last3FingerTapTime = useRef(0);
 
   // Accessibility: Focus sync
   useEffect(() => {
@@ -35,6 +38,12 @@ export const Reader: React.FC<ReaderProps> = ({
          semanticRef.current.focus({ preventScroll: true });
      }
   }, [page?.pageNumber]);
+
+  // Determine Font Family based on Settings
+  const fontStyle = React.useMemo(() => {
+      const langConfig = SUPPORTED_LANGUAGES.find(l => l.code === settings.language);
+      return langConfig ? { fontFamily: `'${langConfig.font}', 'Roboto', sans-serif` } : {};
+  }, [settings.language]);
 
   // Render Visual Layer (Canvas)
   useEffect(() => {
@@ -83,39 +92,51 @@ export const Reader: React.FC<ReaderProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-      const touch = e.touches[0];
-      touchStartRef.current = {
-          x: touch.clientX,
-          y: touch.clientY,
-          time: Date.now()
-      };
-      isLongPressActiveRef.current = false;
-
-      // Long Press Logic (Bookmark)
-      longPressTimerRef.current = setTimeout(() => {
-          isLongPressActiveRef.current = true;
-          handleBookmarkGesture(e.target as HTMLElement);
-      }, settings.longPressDuration || 3000);
-
-      // Tap Logic (Double & Triple)
-      tapCountRef.current += 1;
-      clearTimeout(tapTimerRef.current);
-      
-      tapTimerRef.current = setTimeout(() => {
-          // Timer finished
-          if (tapCountRef.current === 2) {
-             // Double Tap -> Stop Reading
-             if (onDoubleTap) {
-                 triggerHaptic('medium');
-                 onDoubleTap();
-             }
-          } else if (tapCountRef.current === 3) {
-             // Triple Tap -> Where am I
-             handleWhereAmI();
-             clearTimeout(longPressTimerRef.current);
+      // 3-Finger Double Tap Detection (Where Am I?)
+      if (e.touches.length === 3) {
+          const now = Date.now();
+          if (now - last3FingerTapTime.current < 500) {
+              handleWhereAmI(); // Trigger action
+              last3FingerTapTime.current = 0; // Reset
+          } else {
+              last3FingerTapTime.current = now;
           }
-          tapCountRef.current = 0;
-      }, 400); // 400ms window for multi-tap
+          return; 
+      }
+
+      // Single Finger Logic
+      if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          touchStartRef.current = {
+              x: touch.clientX,
+              y: touch.clientY,
+              time: Date.now()
+          };
+          isLongPressActiveRef.current = false;
+
+          // Long Press Logic (Bookmark)
+          longPressTimerRef.current = setTimeout(() => {
+              isLongPressActiveRef.current = true;
+              handleBookmarkGesture(e.target as HTMLElement);
+          }, settings.longPressDuration || 3000);
+
+          // Tap Logic (Double Tap 1 Finger -> Stop Reading)
+          tapCountRef.current += 1;
+          clearTimeout(tapTimerRef.current);
+          
+          tapTimerRef.current = setTimeout(() => {
+              // Timer finished
+              if (tapCountRef.current === 2) {
+                 // Double Tap -> Stop Reading
+                 if (onDoubleTap) {
+                     triggerHaptic('medium');
+                     onDoubleTap();
+                 }
+              }
+              // Single tap or more handled elsewhere or ignored
+              tapCountRef.current = 0;
+          }, 400); 
+      }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -124,7 +145,7 @@ export const Reader: React.FC<ReaderProps> = ({
       const diffX = Math.abs(touch.clientX - touchStartRef.current.x);
       const diffY = Math.abs(touch.clientY - touchStartRef.current.y);
 
-      // Cancel long press if moved > 10px
+      // Cancel long press if moved significantly
       if (diffX > 10 || diffY > 10) {
           clearTimeout(longPressTimerRef.current);
       }
@@ -136,10 +157,13 @@ export const Reader: React.FC<ReaderProps> = ({
 
       const touch = e.changedTouches[0];
       const diffX = touch.clientX - touchStartRef.current.x;
+      const diffY = touch.clientY - touchStartRef.current.y;
       const timeDiff = Date.now() - touchStartRef.current.time;
 
-      // Swipe Detection (Horizontal) - Needs to be quick (< 500ms) and significant (> 50px)
-      if (Math.abs(diffX) > 50 && timeDiff < 500) {
+      // Swipe Detection (Horizontal) 
+      // STRICT CHECK: Horizontal distance must be > 50px, fast (<500ms), 
+      // AND significantly larger than vertical distance (2x) to prevent triggers on scroll.
+      if (Math.abs(diffX) > 50 && timeDiff < 500 && Math.abs(diffX) > Math.abs(diffY) * 2) {
           if (diffX > 0) {
               // Swipe Right -> Prev Page
               onPageChange(-1);
@@ -232,7 +256,10 @@ export const Reader: React.FC<ReaderProps> = ({
                     // Hide if in original mode (visual only)
                     viewMode === 'original' && "sr-only"
                 )}
-                style={{ fontSize: `${settings.fontSize}rem` }}
+                style={{ 
+                    fontSize: `${settings.fontSize}rem`,
+                    ...fontStyle // Apply Font Family here
+                }}
                 dangerouslySetInnerHTML={{ __html: page?.semanticHtml || `<p>${page?.text}</p>` }}
                 aria-label={`Page ${page?.pageNumber} content`}
             />

@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles } from 'lucide-react';
+import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles, Languages } from 'lucide-react';
 import { AppSettings, ColorMode } from '../types';
 import { Button } from './ui/Button';
-import { AVAILABLE_VOICES } from '../constants';
+import { AVAILABLE_VOICES, SUPPORTED_LANGUAGES } from '../constants';
 import clsx from 'clsx';
 import { PineappleLogo } from './ui/PineappleLogo';
 
@@ -140,6 +140,35 @@ Sent via Pine-reader App`
                 <Plus className="w-6 h-6" />
               </Button>
           </div>
+      </section>
+
+      {/* Language Settings */}
+      <section className={clsx(sectionClass, sectionStyle)}>
+           <h3 className="font-bold text-xl flex items-center gap-2">
+              <Languages className="w-6 h-6" /> Language
+           </h3>
+           <p className="text-sm opacity-70 mb-4">Select app and reading language.</p>
+
+           <div className="space-y-4">
+               <div>
+                  <label htmlFor="language-select" className="block font-medium mb-2">Language (भाषा)</label>
+                  <select
+                    id="language-select"
+                    value={settings.language || 'en'}
+                    onChange={(e) => handleChange('language', e.target.value)}
+                    className={clsx(
+                      "w-full p-3 rounded-lg border appearance-none",
+                      settings.colorMode === ColorMode.HIGH_CONTRAST 
+                        ? "bg-black border-yellow-300 text-yellow-300"
+                        : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    )}
+                  >
+                    {SUPPORTED_LANGUAGES.map(lang => (
+                      <option key={lang.code} value={lang.code}>{lang.name}</option>
+                    ))}
+                  </select>
+               </div>
+           </div>
       </section>
 
       {/* Voice Settings */}

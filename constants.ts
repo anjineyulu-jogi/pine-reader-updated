@@ -1,5 +1,5 @@
 
-import { AppSettings, ColorMode } from "./types";
+import { AppSettings, ColorMode, AppLanguage } from "./types";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   fontSize: 1.2, 
@@ -8,7 +8,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pitch: 1.0,
   viewMode: 'accessible',
   voiceName: 'Kore', // Default voice
-  longPressDuration: 3000 // 3 seconds default
+  longPressDuration: 3000, // 3 seconds default
+  language: 'en'
 };
 
 export const AVAILABLE_VOICES = [
@@ -18,6 +19,150 @@ export const AVAILABLE_VOICES = [
   { id: 'Fenrir', name: 'Fenrir (Fast)' },
   { id: 'Zephyr', name: 'Zephyr (Soft)' },
 ];
+
+export const SUPPORTED_LANGUAGES: { code: AppLanguage, name: string, font: string }[] = [
+  { code: 'en', name: 'English', font: 'Roboto' },
+  { code: 'hi', name: 'Hindi (हिंदी)', font: 'Noto Sans Devanagari' },
+  { code: 'te', name: 'Telugu (తెలుగు)', font: 'Noto Sans Telugu' },
+  { code: 'ta', name: 'Tamil (தமிழ்)', font: 'Noto Sans Tamil' },
+  { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', font: 'Noto Sans Kannada' },
+  { code: 'ml', name: 'Malayalam (മലയാളം)', font: 'Noto Sans Malayalam' },
+];
+
+export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
+  en: {
+    back: "Back",
+    share: "Share",
+    prevPage: "Prev Page",
+    nextPage: "Next Page",
+    read: "Read Aloud",
+    stop: "Stop Reading",
+    savePdf: "Save PDF",
+    viewReflow: "Text View",
+    viewOriginal: "Original",
+    bookmarks: "Bookmarks",
+    askPinex: "Ask PineX",
+    rewind: "Rewind 10s",
+    forward: "Forward 10s",
+    more: "More Options",
+    close: "Close",
+    nightMode: "Night Mode",
+    lightMode: "Light Mode",
+    documents: "Documents",
+    settings: "Settings",
+    webReader: "Web Reader"
+  },
+  hi: {
+    back: "पीछे",
+    share: "शेयर करें",
+    prevPage: "पिछला पेज",
+    nextPage: "अगला पेज",
+    read: "पढ़ें",
+    stop: "रोकें",
+    savePdf: "PDF सेव करें",
+    viewReflow: "टेक्स्ट व्यू",
+    viewOriginal: "मूल डॉक्यूमेंट",
+    bookmarks: "बुकमार्क",
+    askPinex: "PineX से पूछें",
+    rewind: "10s पीछे",
+    forward: "10s आगे",
+    more: "अधिक विकल्प",
+    close: "बंद करें",
+    nightMode: "नाईट मोड",
+    lightMode: "लाईट मोड",
+    documents: "डॉक्यूमेंट्स",
+    settings: "सेटिंग्स",
+    webReader: "वेब रीडर"
+  },
+  te: {
+    back: "వెనుకకు",
+    share: "భాగస్వామ్యం",
+    prevPage: "ముందు పేజీ",
+    nextPage: "తరువాతి పేజీ",
+    read: "చదవండి",
+    stop: "ఆపు",
+    savePdf: "PDF సేవ్",
+    viewReflow: "టెక్స్ట్ వీక్షణ",
+    viewOriginal: "అసలు పత్రం",
+    bookmarks: "బుక్‌మార్క్‌లు",
+    askPinex: "PineX అడగండి",
+    rewind: "10s వెనుకకు",
+    forward: "10s ముందుకు",
+    more: "మరిన్ని ఎంపికలు",
+    close: "మూసివేయి",
+    nightMode: "నైట్ మోడ్",
+    lightMode: "లైట్ మోడ్",
+    documents: "పత్రాలు",
+    settings: "అమరికలు",
+    webReader: "వెబ్ రీడర్"
+  },
+  ta: {
+    back: "பின்னால்",
+    share: "பகிர்",
+    prevPage: "முந்தைய பக்கம்",
+    nextPage: "அடுத்த பக்கம்",
+    read: "வாசி",
+    stop: "நிறுத்து",
+    savePdf: "PDF சேமி",
+    viewReflow: "உரை காட்சி",
+    viewOriginal: "அசல் ஆவணம்",
+    bookmarks: "புக்மார்க்குகள்",
+    askPinex: "PineX கேள்",
+    rewind: "10s பின்",
+    forward: "10s முன்",
+    more: "மேலும்",
+    close: "மூடு",
+    nightMode: "இரவு முறை",
+    lightMode: "பகல் முறை",
+    documents: "ஆவணங்கள்",
+    settings: "அமைப்புகள்",
+    webReader: "வலை ரீடர்"
+  },
+  kn: {
+    back: "ಹಿಂದೆ",
+    share: "ಹಂಚಿಕೊಳ್ಳಿ",
+    prevPage: "ಹಿಂದಿನ ಪುಟ",
+    nextPage: "ಮುಂದಿನ ಪುಟ",
+    read: "ಓದಿ",
+    stop: "ನಿಲ್ಲಿಸಿ",
+    savePdf: "PDF ಉಳಿಸಿ",
+    viewReflow: "ಪಠ್ಯ ವೀಕ್ಷಣೆ",
+    viewOriginal: "ಮೂಲ ದಾಖಲೆ",
+    bookmarks: "ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು",
+    askPinex: "PineX ಕೇಳಿ",
+    rewind: "10s ಹಿಂದೆ",
+    forward: "10s ಮುಂದೆ",
+    more: "ಹೆಚ್ಚಿನ ಆಯ್ಕೆಗಳು",
+    close: "ಮುಚ್ಚಿ",
+    nightMode: "ರಾತ್ರಿ ಮೋಡ್",
+    lightMode: "ಹಗಲು ಮೋಡ್",
+    documents: "ದಾಖಲೆಗಳು",
+    settings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+    webReader: "ವೆಬ್ ರೀಡರ್"
+  },
+  ml: {
+    back: "പിന്നിലേക്ക്",
+    share: "പങ്കിടുക",
+    prevPage: "മുമ്പത്തെ പേജ്",
+    nextPage: "അടുത്ത പേജ്",
+    read: "വായിക്കുക",
+    stop: "നിർത്തുക",
+    savePdf: "PDF സംരക്ഷിക്കുക",
+    viewReflow: "ടെക്സ്റ്റ് കാഴ്ച",
+    viewOriginal: "യഥാർത്ഥ രേഖ",
+    bookmarks: "ബുക്ക്മാർക്കുകൾ",
+    askPinex: "PineX ചോദിക്കുക",
+    rewind: "10s പിന്നോട്ട്",
+    forward: "10s മുന്നോട്ട്",
+    more: "കൂടുതൽ",
+    close: "അടയ്ക്കുക",
+    nightMode: "രാത്രി മോഡ്",
+    lightMode: "പകൽ മോഡ്",
+    documents: "രേഖകൾ",
+    settings: "ക്രമീകരണങ്ങൾ",
+    webReader: "വെബ് റീഡർ"
+  }
+};
 
 export const THEME_CLASSES = {
   [ColorMode.LIGHT]: "bg-gray-100 text-gray-900",
@@ -62,6 +207,7 @@ APP KNOWLEDGE BASE:
    - **Themes**: Light, Dark, High Contrast (Yellow on Black).
    - **Font Size**: Adjustable from 0.8x to 3.0x.
    - **Voices**: Kore, Puck, Charon, Fenrir, Zephyr.
+   - **Languages**: English, Hindi, Telugu, Tamil, Kannada, Malayalam.
 
 YOUR ROLE:
 - Answer questions about the current document using the provided context.

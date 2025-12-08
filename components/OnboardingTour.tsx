@@ -23,7 +23,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
         },
         {
             title: "Accessible by Design",
-            text: "Navigate easily with tabs at the bottom. \n\nDouble-tap to stop reading. Triple-tap anywhere to ask 'Where am I?'. Long-press text to bookmark it.",
+            text: "Navigate easily with tabs at the bottom. \n\nDouble-tap to stop reading. Double-tap with 3 fingers anywhere to ask 'Where am I?'. Long-press text to bookmark it.",
         },
         {
             title: "Ready to Read",

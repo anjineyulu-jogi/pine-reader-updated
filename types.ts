@@ -40,6 +40,8 @@ export enum ColorMode {
   HIGH_CONTRAST = 'HIGH_CONTRAST'
 }
 
+export type AppLanguage = 'en' | 'hi' | 'te' | 'ta' | 'kn' | 'ml';
+
 export interface AppSettings {
   fontSize: number; // in rem
   colorMode: ColorMode;
@@ -48,6 +50,7 @@ export interface AppSettings {
   viewMode: 'original' | 'accessible';
   voiceName: string; // New: TTS Voice Selection
   longPressDuration: number; // ms
+  language: AppLanguage; // New: App Language
 }
 
 // Navigation Types

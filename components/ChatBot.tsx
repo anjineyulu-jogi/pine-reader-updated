@@ -137,7 +137,7 @@ export const PineX: React.FC<PineXProps> = ({
   };
 
   const containerClass = isEmbedded 
-    ? "flex flex-col h-full" 
+    ? "flex flex-col h-full bg-inherit" 
     : clsx(
         "fixed inset-0 z-50 flex flex-col",
         isHighContrast ? "bg-black" : "bg-white dark:bg-gray-900"
@@ -145,65 +145,68 @@ export const PineX: React.FC<PineXProps> = ({
 
   return (
     <div className={containerClass} role="region" aria-label="PineX AI Assistant">
+      {/* HEADER */}
       <div className={clsx(
-          "shrink-0 flex justify-between items-center",
-          isEmbedded ? "p-4 pb-2 border-b border-inherit" : "p-4 border-b bg-inherit"
+          "shrink-0 flex justify-between items-center z-20 backdrop-blur-md sticky top-0",
+          isEmbedded ? "p-4 pb-2 border-b border-inherit bg-inherit/90" : "p-4 border-b bg-inherit/90"
       )}>
           <div className="flex items-center gap-3">
              {onBack && (
                  <Button 
-                    label="Back to Reading"
+                    label="Back"
                     onClick={onBack}
                     colorMode={settings.colorMode}
                     variant="secondary"
                     icon={<ChevronLeft className="w-5 h-5" />}
-                    className="p-1.5 h-auto rounded-full"
+                    className="p-1.5 h-auto rounded-full shadow-sm"
                  />
              )}
-             <div className="flex flex-col">
-                <h2 className={clsx("font-bold flex items-center gap-2", isEmbedded ? "text-xl" : "text-xl")}>
-                    <PineappleLogo className="w-8 h-8" /> PineX
+             <div className="flex items-center gap-2">
+                <PineappleLogo className="w-8 h-8 drop-shadow-md" />
+                <h2 className={clsx("font-bold tracking-tight", isEmbedded ? "text-xl" : "text-xl")}>
+                    PineX
                 </h2>
              </div>
           </div>
 
           <div className="flex items-center gap-2">
-               <div className="flex gap-1">
+               <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                    <button
                       onClick={() => setUseSearch(!useSearch)}
                       className={clsx(
-                          "p-2 rounded-lg border transition-all",
+                          "p-2 rounded-lg transition-all",
                           useSearch 
-                            ? (isHighContrast ? "bg-yellow-300 text-black border-white" : "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900 dark:text-blue-300")
-                            : (isHighContrast ? "border-yellow-300 text-yellow-300" : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800")
+                            ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                            : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       )}
-                      aria-label={`Toggle Web Search ${useSearch ? 'On' : 'Off'}`}
+                      aria-label={`Web Search ${useSearch ? 'On' : 'Off'}`}
                       aria-pressed={useSearch}
                   >
                        <Globe className="w-5 h-5" />
                    </button>
-               </div>
-               <div className="flex gap-1">
                    <button
                       onClick={() => setUseThinking(!useThinking)}
                       className={clsx(
-                          "p-2 rounded-lg border transition-all",
+                          "p-2 rounded-lg transition-all",
                           useThinking 
-                            ? (isHighContrast ? "bg-yellow-300 text-black border-white" : "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900 dark:text-purple-300")
-                            : (isHighContrast ? "border-yellow-300 text-yellow-300" : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800")
+                             ? "bg-white dark:bg-gray-700 shadow-sm text-purple-600 dark:text-purple-400"
+                            : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       )}
-                      aria-label={`Toggle Deep Thinking ${useThinking ? 'On' : 'Off'}`}
+                      aria-label={`Deep Thinking ${useThinking ? 'On' : 'Off'}`}
                       aria-pressed={useThinking}
                   >
                        <Brain className="w-5 h-5" />
                    </button>
                </div>
-               <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
-               <div>
-                   <button onClick={handleClearChat} className={clsx("p-2 rounded-lg border border-transparent transition-all", isHighContrast ? "text-yellow-300 hover:text-white" : "text-gray-500 hover:text-red-500")} aria-label="Clear Chat">
-                       <Trash2 className="w-5 h-5" />
-                   </button>
-               </div>
+               
+               <button 
+                  onClick={handleClearChat} 
+                  className={clsx("p-2 rounded-lg transition-all hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500")} 
+                  aria-label="Clear Chat"
+               >
+                   <Trash2 className="w-5 h-5" />
+               </button>
+               
                {!isEmbedded && (
                    <div className="ml-2">
                        <Button label="Close" onClick={onClose} colorMode={settings.colorMode} variant="secondary" icon={<X className="w-5 h-5" />} />
@@ -212,36 +215,42 @@ export const PineX: React.FC<PineXProps> = ({
           </div>
       </div>
 
-      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-4 pb-24", THEME_CLASSES[settings.colorMode])}>
+      {/* CHAT AREA */}
+      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-6 pb-32", THEME_CLASSES[settings.colorMode])}>
         {messages.map((msg, i) => (
             <div key={i} className={clsx(
-                "w-full flex",
+                "w-full flex animate-in slide-in-from-bottom-2 duration-300",
                 msg.role === 'user' ? "justify-end" : "justify-start"
             )}>
                 {msg.role === 'model' && (
-                     <div className="shrink-0 mr-2 mt-1">
-                         <PineappleLogo className="w-8 h-8 drop-shadow-sm" />
+                     <div className="shrink-0 mr-3 mt-1">
+                         <PineappleLogo className="w-8 h-8 drop-shadow-md" />
                      </div>
                 )}
                 
                 <div className={clsx(
-                    "max-w-[85%] p-4 text-base leading-relaxed flex flex-col gap-2 shadow-sm",
+                    "max-w-[85%] p-4 text-[1.05rem] leading-relaxed flex flex-col gap-2 shadow-sm relative",
                     msg.role === 'user' 
                         ? (isHighContrast 
-                            ? "rounded-l-2xl rounded-tr-none bg-yellow-300 text-black font-bold border-2 border-white" 
-                            : "rounded-l-2xl rounded-tr-none bg-[#FFC107] text-black shadow-md")
+                            ? "rounded-2xl rounded-tr-sm bg-yellow-300 text-black font-bold border-2 border-white" 
+                            : "rounded-2xl rounded-tr-sm bg-[#FFC107] text-black shadow-md")
                         : (isHighContrast 
-                            ? "rounded-r-2xl rounded-tl-none bg-black text-yellow-300 border-2 border-yellow-300" 
-                            : "rounded-r-2xl rounded-tl-none bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100")
+                            ? "rounded-2xl rounded-tl-sm bg-black text-yellow-300 border-2 border-yellow-300" 
+                            : "rounded-2xl rounded-tl-sm bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100")
                 )}>
-                    <div>{msg.text}</div>
+                    <div className="whitespace-pre-wrap">{msg.text}</div>
+                    
                     {msg.sources && msg.sources.length > 0 && (
-                        <div className="mt-2 pt-2 border-t text-sm border-current opacity-75">
-                            <p className="font-bold opacity-80 mb-1 text-xs uppercase tracking-wider">Sources:</p>
-                            <ul className="space-y-1">
+                        <div className="mt-3 pt-3 border-t border-black/10 dark:border-white/10 text-sm">
+                            <p className="font-bold opacity-70 mb-2 text-xs uppercase tracking-wider flex items-center gap-1">
+                                <Globe className="w-3 h-3" /> Sources
+                            </p>
+                            <ul className="space-y-2">
                                 {msg.sources.map((source, idx) => (
-                                    <li key={idx}>
-                                        <a href={source.uri} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 break-all">{source.title || source.uri}</a>
+                                    <li key={idx} className="bg-black/5 dark:bg-white/5 p-2 rounded hover:bg-black/10 transition-colors">
+                                        <a href={source.uri} target="_blank" rel="noopener noreferrer" className="block truncate hover:underline text-xs font-medium">
+                                            {source.title || source.uri}
+                                        </a>
                                     </li>
                                 ))}
                             </ul>
@@ -251,9 +260,12 @@ export const PineX: React.FC<PineXProps> = ({
             </div>
         ))}
         {isLoading && (
-            <div className="flex gap-2 pl-4 py-2">
+            <div className="flex gap-3 pl-4 py-2 animate-in fade-in">
                 <PineappleLogo className="w-8 h-8 animate-pulse opacity-50" />
-                <div className="flex items-center gap-1">
+                <div className={clsx(
+                    "flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm",
+                    isHighContrast ? "bg-black border border-yellow-300" : "bg-gray-100 dark:bg-gray-800"
+                )}>
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -263,35 +275,36 @@ export const PineX: React.FC<PineXProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* INPUT AREA */}
       <form onSubmit={handleSend} className={clsx(
-          "absolute bottom-0 left-0 right-0 p-4 border-t z-10",
-          isHighContrast ? "border-yellow-300 bg-black" : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+          "absolute bottom-0 left-0 right-0 p-4 border-t z-30 backdrop-blur-xl transition-colors",
+          isHighContrast 
+            ? "border-yellow-300 bg-black" 
+            : "border-gray-200/50 dark:border-gray-800/50 bg-white/90 dark:bg-gray-900/90"
       )}>
-          <div className="flex gap-2 max-w-4xl mx-auto">
-            <div className="flex-1">
+          <div className="flex gap-3 max-w-4xl mx-auto items-end">
+            <div className="flex-1 relative">
                 <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask PineX..."
+                    placeholder="Ask PineX anything..."
                     aria-label="Message Input"
                     className={clsx(
-                        "w-full px-5 py-3 rounded-full focus:outline-none focus:ring-2 text-base shadow-inner",
+                        "w-full px-6 py-4 rounded-3xl focus:outline-none focus:ring-2 text-base shadow-sm transition-shadow",
                         isHighContrast 
                             ? "bg-black border-2 border-yellow-300 text-yellow-300 placeholder-yellow-700 focus:ring-yellow-400"
-                            : "bg-gray-100 dark:bg-gray-800 border-transparent text-gray-900 dark:text-gray-100 focus:ring-[#FFC107] focus:bg-white dark:focus:bg-black"
+                            : "bg-gray-100 dark:bg-gray-800 border-transparent text-gray-900 dark:text-gray-100 focus:ring-[#FFC107] focus:bg-white dark:focus:bg-black placeholder-gray-500"
                     )}
                 />
             </div>
-            <div>
-                <Button 
-                    colorMode={settings.colorMode} 
-                    label="Send" 
-                    type="submit" 
-                    icon={<Send className="w-5 h-5 text-black" />} 
-                    className="w-12 h-12 rounded-full !bg-[#FFC107] hover:!bg-yellow-400 p-0 flex items-center justify-center shadow-md active:scale-95 transition-transform" 
-                />
-            </div>
+            <Button 
+                colorMode={settings.colorMode} 
+                label="Send" 
+                type="submit" 
+                icon={<Send className="w-6 h-6 text-black ml-0.5" />} 
+                className="w-14 h-14 rounded-full !bg-[#FFC107] hover:!bg-yellow-400 p-0 flex items-center justify-center shadow-lg active:scale-95 transition-all hover:scale-105" 
+            />
           </div>
       </form>
     </div>

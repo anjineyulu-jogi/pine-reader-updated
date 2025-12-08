@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, MessageSquare, ArrowLeft, Volume2, StopCircle, Loader2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, Mic, X, Bot, MoreHorizontal } from 'lucide-react';
 import clsx from 'clsx';
@@ -5,7 +6,7 @@ import { parsePDF, parseTextFile, parseDocx, parseExcel, getPDFProxy } from './s
 import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent } from './services/geminiService';
 import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData } from './services/storageService';
 import { ParsedDocument, AppSettings, ColorMode, Tab, DocumentType, Bookmark, ChatMessage } from './types';
-import { DEFAULT_SETTINGS, THEME_CLASSES } from './constants';
+import { DEFAULT_SETTINGS, THEME_CLASSES, UI_TRANSLATIONS, SUPPORTED_LANGUAGES } from './constants';
 import { Reader } from './components/Reader';
 import { Button } from './components/ui/Button';
 import { SettingsPanel } from './components/SettingsPanel';
@@ -22,7 +23,7 @@ import { OnboardingTour } from './components/OnboardingTour';
 const AUDIO_BUFFER_AHEAD = 2; 
 
 export default function App() {
-  const [document, setDocument] = useState<ParsedDocument | null>(null);
+  const [currentDoc, setCurrentDoc] = useState<ParsedDocument | null>(null);
   const [pdfProxy, setPdfProxy] = useState<any>(null); 
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -62,6 +63,9 @@ export default function App() {
     { role: 'model', text: "Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍" }
   ]);
 
+  // Labels for current language
+  const labels = UI_TRANSLATIONS[settings.language || 'en'];
+
   useEffect(() => {
       // Check first launch
       const hasSeenTour = localStorage.getItem('pine_onboarding_complete');
@@ -72,43 +76,46 @@ export default function App() {
       
       // Handle Hardware Back Button (Native Feel)
       const handlePopState = (event: PopStateEvent) => {
-          if (document) {
+          if (currentDoc) {
               handleCloseDocument();
           }
       };
 
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
-  }, [document]);
+  }, [currentDoc]);
+
+  // Apply Language Font globally
+  useEffect(() => {
+    const langConfig = SUPPORTED_LANGUAGES.find(l => l.code === settings.language);
+    if (langConfig && window.document.body) {
+        window.document.body.style.fontFamily = `'${langConfig.font}', 'Roboto', sans-serif`;
+    }
+  }, [settings.language]);
 
   const handleOnboardingComplete = () => {
       localStorage.setItem('pine_onboarding_complete', 'true');
       setShowOnboarding(false);
   };
 
-  // Global Triple Tap Gesture
+  // Global 3-Finger Double Tap Gesture (Where Am I?)
+  const last3FingerTapRef = useRef(0);
   useEffect(() => {
-      let lastTap = 0;
-      let tapCount = 0;
-
-      const handleGlobalTap = (e: TouchEvent) => {
-          const now = Date.now();
-          if (now - lastTap < 400) {
-              tapCount++;
-          } else {
-              tapCount = 1;
-          }
-          lastTap = now;
-
-          if (tapCount === 3) {
-              handleWhereAmI();
-              tapCount = 0;
+      const handleGlobalTouch = (e: TouchEvent) => {
+          if (e.touches.length === 3) {
+              const now = Date.now();
+              if (now - last3FingerTapRef.current < 500) {
+                  handleWhereAmI();
+                  last3FingerTapRef.current = 0;
+              } else {
+                  last3FingerTapRef.current = now;
+              }
           }
       };
 
-      window.addEventListener('touchend', handleGlobalTap);
-      return () => window.removeEventListener('touchend', handleGlobalTap);
-  }, [document, currentPageIndex]);
+      window.addEventListener('touchstart', handleGlobalTouch);
+      return () => window.removeEventListener('touchstart', handleGlobalTouch);
+  }, [currentDoc, currentPageIndex]);
 
   // Voice Recognition Init
   useEffect(() => {
@@ -116,7 +123,7 @@ export default function App() {
           const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
           recognitionRef.current = new SpeechRecognition();
           recognitionRef.current.continuous = false;
-          recognitionRef.current.lang = 'en-US';
+          recognitionRef.current.lang = settings.language === 'en' ? 'en-US' : settings.language; // Basic lang support
           recognitionRef.current.onresult = (event: any) => {
               const transcript = event.results[0][0].transcript.toLowerCase();
               console.log("Voice Command:", transcript);
@@ -126,7 +133,7 @@ export default function App() {
           recognitionRef.current.onerror = () => setIsListening(false);
           recognitionRef.current.onend = () => setIsListening(false);
       }
-  }, [document, audioModeActive, settings]);
+  }, [currentDoc, audioModeActive, settings]);
 
   const toggleVoiceListener = () => {
       if (!recognitionRef.current) {
@@ -155,12 +162,12 @@ export default function App() {
   };
 
   const handleWhereAmI = () => {
-      if (!document) {
+      if (!currentDoc) {
           announce("You are in the main menu.");
           return;
       }
       const pageNum = currentPageIndex + 1;
-      const total = document.metadata.pageCount;
+      const total = currentDoc.metadata.pageCount;
       announce(`You are on page ${pageNum} of ${total}.`);
   };
 
@@ -229,7 +236,8 @@ export default function App() {
       setIsProcessing(true);
       setShowMoreMenu(false);
       try {
-          const content = await fetchWebPageContent(url);
+          const langName = SUPPORTED_LANGUAGES.find(l => l.code === settings.language)?.name || 'English';
+          const content = await fetchWebPageContent(url, langName);
           const parsed: ParsedDocument = {
               metadata: { name: content.title, type: DocumentType.WEB, pageCount: 1, lastReadDate: Date.now() },
               pages: [{
@@ -254,7 +262,7 @@ export default function App() {
   const loadDocumentIntoReader = (parsed: ParsedDocument) => {
       const { pageIndex } = getReadingProgress(parsed.metadata.name);
       const startPage = (pageIndex >= 0 && pageIndex < parsed.pages.length) ? pageIndex : 0;
-      setDocument(parsed);
+      setCurrentDoc(parsed);
       setCurrentPageIndex(startPage);
       const greeting = `Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍`;
       setPineXMessages([{ role: 'model', text: greeting }]);
@@ -278,7 +286,7 @@ export default function App() {
   };
 
   const handleCloseDocument = () => {
-    setDocument(null);
+    setCurrentDoc(null);
     setPdfProxy(null);
     setShowJumpModal(false);
     stopAudio();
@@ -290,22 +298,22 @@ export default function App() {
   };
 
   const handleShare = async () => {
-      if (!document) return;
+      if (!currentDoc) return;
       try {
           // Share extracted text for Web Pages
-          if (document.metadata.type === DocumentType.WEB) {
+          if (currentDoc.metadata.type === DocumentType.WEB) {
              const shareData = {
-                 title: document.metadata.name,
-                 text: `${document.metadata.name}\n\n${document.rawText.substring(0, 4000)}...\n\nRead via Pine Reader 🍍`
+                 title: currentDoc.metadata.name,
+                 text: `${currentDoc.metadata.name}\n\n${currentDoc.rawText.substring(0, 4000)}...\n\nRead via Pine Reader 🍍`
              };
              if (navigator.share) await navigator.share(shareData);
              else { await navigator.clipboard.writeText(shareData.text); alert("Text copied!"); }
              return;
           }
 
-          const file = await getStoredFile(document.metadata.name);
+          const file = await getStoredFile(currentDoc.metadata.name);
           if (file && navigator.share && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: document.metadata.name });
+              await navigator.share({ files: [file], title: currentDoc.metadata.name });
           } else {
              alert("Sharing not supported directly.");
           }
@@ -355,7 +363,7 @@ export default function App() {
           needsUpdate = true;
       }
       if (needsUpdate) {
-          setDocument(prev => prev ? ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? newPage : p) }) : null);
+          setCurrentDoc(prev => prev ? ({ ...prev, pages: prev.pages.map((p, i) => i === pageIndex ? newPage : p) }) : null);
           setIsProcessing(false);
           prepareAudioForPage({ ...doc, pages: [...doc.pages, newPage] } as any, pageIndex);
       } else {
@@ -393,7 +401,7 @@ export default function App() {
       let buffer = audioCacheRef.current.get(pageIdx);
       if (!buffer) {
           setAudioGenerating(true);
-          await prepareAudioForPage(document!, pageIdx);
+          await prepareAudioForPage(currentDoc!, pageIdx);
           buffer = audioCacheRef.current.get(pageIdx);
           setAudioGenerating(false);
       }
@@ -419,7 +427,7 @@ export default function App() {
              if (elapsed + offset >= duration - 0.5) {
                 // Audio finished naturally, go to next page
                 const nextIdx = currentPageIndex + 1;
-                if (nextIdx < (document?.metadata.pageCount || 0)) {
+                if (nextIdx < (currentDoc?.metadata.pageCount || 0)) {
                     setCurrentPageIndex(nextIdx); playAudioForPage(nextIdx);
                 } else setIsPlayingAudio(false);
              } else {
@@ -471,15 +479,15 @@ export default function App() {
       playBufferFrom(Math.min(audioBufferRef.current.duration, current + 10));
   };
   const changePage = (delta: number) => {
-      if (!document) return;
+      if (!currentDoc) return;
       const newIndex = currentPageIndex + delta;
-      if (newIndex >= 0 && newIndex < document.pages.length) {
+      if (newIndex >= 0 && newIndex < currentDoc.pages.length) {
           stopAudio();
           setCurrentPageIndex(newIndex);
-          saveReadingProgress(document.metadata.name, newIndex);
-          if (document.metadata.type !== DocumentType.IMAGE) {
-            enhancePage(document, newIndex);
-            setTimeout(() => enhancePage(document, newIndex + 1), 1000);
+          saveReadingProgress(currentDoc.metadata.name, newIndex);
+          if (currentDoc.metadata.type !== DocumentType.IMAGE) {
+            enhancePage(currentDoc, newIndex);
+            setTimeout(() => enhancePage(currentDoc, newIndex + 1), 1000);
           }
           triggerHaptic('medium');
           if (audioModeActive) playAudioForPage(newIndex);
@@ -494,7 +502,7 @@ export default function App() {
       if (action === 'setFontSize') setSettings(s => ({ ...s, fontSize: params.action === 'increase' ? s.fontSize + 0.2 : s.fontSize - 0.2 }));
   };
 
-  const isReadingMode = (activeTab === Tab.DOCUMENTS || activeTab === Tab.PINEX) && !!document;
+  const isReadingMode = (activeTab === Tab.DOCUMENTS || activeTab === Tab.PINEX) && !!currentDoc;
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
   const isDarkMode = settings.colorMode === ColorMode.DARK;
 
@@ -504,7 +512,7 @@ export default function App() {
       }
       switch (activeTab) {
           case Tab.DOCUMENTS:
-              if (document) {
+              if (currentDoc) {
                   return (
                     <div className="flex flex-col h-full bg-black">
                          {/* FINAL HEADER: Back, Title, Share (Fixed Top Bar) */}
@@ -512,19 +520,19 @@ export default function App() {
                             "px-4 py-3 shrink-0 flex items-center justify-between gap-4 z-20 shadow-md",
                             isHighContrast ? "bg-black border-b border-yellow-300" : "bg-gray-900 border-b border-gray-800 text-white"
                         )}>
-                            <Button label="Back" onClick={() => window.history.back()} colorMode={settings.colorMode} variant="ghost" icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
-                            <h1 className={clsx("text-base font-bold truncate flex-1 text-center", isHighContrast ? "text-yellow-300" : "text-white")}>{document.metadata.name}</h1>
-                            <Button label="Share" onClick={handleShare} colorMode={settings.colorMode} variant="ghost" icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
+                            <Button label={labels.back} onClick={() => window.history.back()} colorMode={settings.colorMode} variant="ghost" icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
+                            <h1 className={clsx("text-base font-bold truncate flex-1 text-center", isHighContrast ? "text-yellow-300" : "text-white")}>{currentDoc.metadata.name}</h1>
+                            <Button label={labels.share} onClick={handleShare} colorMode={settings.colorMode} variant="ghost" icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
                         </header>
 
                         <main className="flex-1 relative overflow-hidden bg-white dark:bg-black">
                              <Reader 
-                                  page={document.pages[currentPageIndex]}
+                                  page={currentDoc.pages[currentPageIndex]}
                                   pdfProxy={pdfProxy} 
                                   settings={settings}
                                   isProcessing={isProcessing}
                                   onPageChange={changePage}
-                                  documentName={document.metadata.name}
+                                  documentName={currentDoc.metadata.name}
                                   onBookmark={(bm) => saveBookmark(bm)}
                                   viewMode={viewMode}
                                   onDoubleTap={handleExitAudioMode}
@@ -539,23 +547,23 @@ export default function App() {
                             {audioModeActive ? (
                                 // AUDIO PLAYER DOCK
                                 <div className="flex items-center justify-between gap-2 max-w-lg mx-auto relative px-2">
-                                    <Button label="Prev Page" variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-6 h-6 text-[#FFC107]" />} />
-                                    <Button label="Rewind 10s" variant="ghost" colorMode={settings.colorMode} onClick={handleRewind} icon={<SkipBack className="w-6 h-6 text-[#FFC107]" />} />
+                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-6 h-6 text-[#FFC107]" />} />
+                                    <Button label={labels.rewind} variant="ghost" colorMode={settings.colorMode} onClick={handleRewind} icon={<SkipBack className="w-6 h-6 text-[#FFC107]" />} />
                                     <Button 
-                                        label={isPlayingAudio ? "Stop Reading" : "Resume Reading"} 
+                                        label={isPlayingAudio ? labels.stop : labels.read} 
                                         variant="ghost" 
                                         colorMode={settings.colorMode} 
                                         onClick={togglePlayPause} 
                                         icon={isPlayingAudio ? <Pause className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" /> : <Play className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" />} 
                                     />
-                                    <Button label="Forward 10s" variant="ghost" colorMode={settings.colorMode} onClick={handleForward} icon={<SkipForward className="w-6 h-6 text-[#FFC107]" />} />
-                                    <Button label="Next Page" variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === document.metadata.pageCount - 1} icon={<ChevronRight className="w-6 h-6 text-[#FFC107]" />} />
+                                    <Button label={labels.forward} variant="ghost" colorMode={settings.colorMode} onClick={handleForward} icon={<SkipForward className="w-6 h-6 text-[#FFC107]" />} />
+                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-6 h-6 text-[#FFC107]" />} />
                                     
                                     {/* Close Audio Mode */}
                                     <button 
                                         onClick={handleExitAudioMode}
                                         className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700"
-                                        aria-label="Exit Audio Mode"
+                                        aria-label={labels.close}
                                     >
                                         <X className="w-5 h-5" />
                                     </button>
@@ -563,10 +571,10 @@ export default function App() {
                             ) : showMoreMenu ? (
                                 // MORE MENU DOCK (6 Small Icons)
                                 <div className="grid grid-cols-6 gap-2 items-center justify-items-center max-w-xl mx-auto">
-                                    <Button label="Read Aloud" variant="ghost" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
-                                    <Button label="Save PDF" variant="ghost" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
+                                    <Button label={labels.read} variant="ghost" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
+                                    <Button label={labels.savePdf} variant="ghost" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
                                     <Button 
-                                        label={viewMode === 'original' ? "Reflow" : "Original"} 
+                                        label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
                                         variant="ghost" 
                                         colorMode={settings.colorMode} 
                                         onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
@@ -574,36 +582,36 @@ export default function App() {
                                         className="w-full flex-col text-[10px] p-1 gap-1" 
                                     />
                                     <Button 
-                                        label={isDarkMode ? "Light" : "Night"}
+                                        label={isDarkMode ? labels.lightMode : labels.nightMode}
                                         variant="ghost" 
                                         colorMode={settings.colorMode} 
                                         onClick={toggleNightMode} 
                                         icon={isDarkMode ? <Sun className="w-6 h-6 text-[#FFC107]" /> : <Moon className="w-6 h-6 text-[#FFC107]" />} 
                                         className="w-full flex-col text-[10px] p-1 gap-1" 
                                     />
-                                    <Button label="Bookmarks" variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
-                                    <Button label="Close" variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6 text-white" />} className="w-full flex-col text-[10px] p-1 gap-1" />
+                                    <Button label={labels.bookmarks} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
+                                    <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6 text-white" />} className="w-full flex-col text-[10px] p-1 gap-1" />
                                 </div>
                             ) : (
                                 // MAIN DOCK (4 Big Buttons)
                                 <div className="grid grid-cols-4 gap-4 h-14 items-center max-w-lg mx-auto">
-                                    <Button label="Previous Page" variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label="Ask PineX" variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label="Next Page" variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === document.metadata.pageCount - 1} icon={<ChevronRight className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label="More Options" variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
                                 </div>
                             )}
                         </div>
                         {audioGenerating && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg bg-black/80 text-[#FFC107] flex items-center gap-3 border border-[#FFC107]"><Loader2 className="w-5 h-5 animate-spin" /><span className="font-medium text-sm">Preparing voice...</span></div>}
-                        <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={document.metadata.pageCount} settings={settings} />
+                        <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={currentDoc.metadata.pageCount} settings={settings} />
                     </div>
                   );
               }
               return <DocumentsView onFileUpload={(e) => { const f = e.target.files?.[0]; if(f) processFile(f); }} onResumeFile={async (id) => { const f = await getStoredFile(id); if(f) processFile(f); }} recentFiles={recentFiles} settings={settings} />;
           case Tab.PINEX:
-              return <PineX pageContext={document ? `Document: ${document.metadata.name}\nText:\n${document.pages[currentPageIndex]?.text}` : undefined} settings={settings} isEmbedded={true} onControlAction={handlePineXControl} messages={pineXMessages} onUpdateMessages={setPineXMessages} onBack={document ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
+              return <PineX pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} settings={settings} isEmbedded={true} onControlAction={handlePineXControl} messages={pineXMessages} onUpdateMessages={setPineXMessages} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
           case Tab.BOOKMARKS:
-              return <BookmarksView settings={settings} onOpenBookmark={(id, page) => { if(document && document.metadata.name === id) { setCurrentPageIndex(page); setActiveTab(Tab.DOCUMENTS); } }} onBack={document ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
+              return <BookmarksView settings={settings} onOpenBookmark={(id, page) => { if(currentDoc && currentDoc.metadata.name === id) { setCurrentPageIndex(page); setActiveTab(Tab.DOCUMENTS); } }} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
           case Tab.SETTINGS:
               return <SettingsPanel settings={settings} onUpdateSettings={setSettings} />;
           case Tab.WEB_READER:

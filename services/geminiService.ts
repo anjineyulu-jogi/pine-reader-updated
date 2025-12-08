@@ -12,7 +12,7 @@ export const transformTextToSemanticHtml = async (text: string): Promise<string>
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       config: {
-        systemInstruction: "You are an expert accessibility engine for blind users. Convert raw text into perfect, semantic HTML5. Detect headings (h1-h6), tables (table, th, tr, td), and lists. STRICTLY FOLLOW THESE RULES FOR TABLES: 1. Add role='grid' to the <table> tag. 2. Add aria-rowcount and aria-colcount attributes to the <table> tag (estimate counts if needed). 3. Add scope='col' to <th> cells. 4. Add scope='row' to the first <td> cell in every <tr> of the <tbody>. Do not summarize.",
+        systemInstruction: "You are an expert accessibility engine for blind users. Convert raw text into perfect, semantic HTML5. Detect headings (h1-h6), tables (table, th, tr, td), and lists. STRICTLY FOLLOW THESE RULES FOR TABLES: 1. Add role='grid' to the <table> tag. 2. Add aria-rowcount and aria-colcount attributes to the <table> tag (estimate counts if needed). 3. Add scope='col' to <th> cells. 4. Add scope='row' to the first <td> cell in every <tr> of the <tbody>. Preserve the original language of the text. Do not summarize.",
         temperature: 0.1,
       },
       contents: `RAW TEXT TO CONVERT:\n${text.substring(0, 15000)}` 
@@ -33,11 +33,16 @@ export const transformTextToSemanticHtml = async (text: string): Promise<string>
  */
 export const optimizeTableForSpeech = (html: string): string => {
     try {
+        if (!html) return "";
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        
+        // Safety check for body existence
+        if (!doc || !doc.body) return html.replace(/<[^>]*>/g, ' ');
+
         const tables = doc.querySelectorAll('table');
 
-        if (tables.length === 0) return doc.body.innerText;
+        if (tables.length === 0) return doc.body.innerText || "";
 
         tables.forEach((table, index) => {
             const rows = Array.from(table.querySelectorAll('tr'));
@@ -71,9 +76,9 @@ export const optimizeTableForSpeech = (html: string): string => {
             table.replaceWith(p);
         });
 
-        return doc.body.innerText; 
+        return doc.body.innerText || ""; 
     } catch (e) {
-        return html.replace(/<[^>]*>/g, ' '); 
+        return html ? html.replace(/<[^>]*>/g, ' ') : ""; 
     }
 };
 
@@ -175,7 +180,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string): Promi
             contents: {
                 parts: [
                     { inlineData: { mimeType: mimeType, data: base64Image } },
-                    { text: "Analyze this document/image. Extract all text, headings, tables. Return Semantic HTML5." }
+                    { text: "Analyze this document/image. Extract all text, headings, tables. Return Semantic HTML5. Preserve original language." }
                 ]
             }
         });
@@ -191,18 +196,19 @@ export const analyzeImage = async (base64Image: string, mimeType: string): Promi
  * Fetch Web Page Content using Gemini 2.5 Flash with Google Search
  * Robust rewrite to handle model refusals and formatting issues.
  */
-export const fetchWebPageContent = async (url: string): Promise<{title: string, html: string, text: string}> => {
+export const fetchWebPageContent = async (url: string, targetLanguage: string = 'English'): Promise<{title: string, html: string, text: string}> => {
     try {
         // Use a "Search and Extract" strategy instead of "Browse to" to avoid capability refusals
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: `You are a web extraction tool. Use Google Search to find the content of the article at this URL: ${url}.
             
-            Extract the Full Title and the Full Article Text. 
-            Format your response strictly as a JSON object with these keys:
-            "title": The article title.
-            "contentHtml": The full text formatted as accessible Semantic HTML (h1, p, ul, table).
-            "plainText": The full plain text.
+            1. Extract the Full Title and the Full Article Text.
+            2. Translate the content into ${targetLanguage} (if it is not already in that language).
+            3. Format your response strictly as a JSON object with these keys:
+            "title": The article title (in ${targetLanguage}).
+            "contentHtml": The full text formatted as accessible Semantic HTML (h1, p, ul, table) in ${targetLanguage}.
+            "plainText": The full plain text in ${targetLanguage}.
 
             Do not chat. Do not apologize. Just return the JSON code block.`,
             config: {

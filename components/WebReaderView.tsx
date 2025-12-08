@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Globe, Link as LinkIcon, Clipboard, ArrowRight } from 'lucide-react';
+import { Globe, Link as LinkIcon, Clipboard, ArrowRight, Layout, Type, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
@@ -37,76 +37,88 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300 pb-24 overflow-y-auto">
-      <header className="mb-8 flex items-center gap-3">
-        <PineappleLogo className="w-10 h-10" />
-        <div>
-            <h2 className="text-3xl font-bold flex items-center gap-2">
-                Web Reader
-            </h2>
-            <p className="opacity-80 text-sm mt-1">Read any web article or story without ads.</p>
-        </div>
+    <div className="flex-1 flex flex-col animate-in fade-in duration-300 pb-24 overflow-y-auto bg-gray-50 dark:bg-black/50">
+      {/* Hero Header */}
+      <header className="pt-10 pb-6 px-6 text-center">
+         <div className="inline-flex items-center justify-center p-4 rounded-full bg-white dark:bg-gray-800 shadow-md mb-4">
+            <PineappleLogo className="w-16 h-16 drop-shadow-sm" />
+         </div>
+         <h2 className="text-4xl font-extrabold tracking-tight mb-2">Web Reader</h2>
+         <p className="text-lg opacity-70 max-w-md mx-auto">
+             Transform any web article into a clean, accessible reading experience.
+         </p>
       </header>
 
-      <div className="max-w-xl mx-auto w-full space-y-8 mt-4">
+      {/* Main Card */}
+      <div className="max-w-xl mx-auto w-full px-6">
           <div className={clsx(
-              "p-8 rounded-xl border flex flex-col gap-6 text-center transition-colors",
+              "p-6 sm:p-8 rounded-2xl border transition-all shadow-xl",
               isHighContrast 
                 ? "bg-black border-yellow-300 text-yellow-300"
-                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm"
+                : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800"
           )}>
-              <div className={clsx(
-                  "mx-auto p-4 rounded-full",
-                  isHighContrast ? "bg-yellow-300 text-black" : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-              )}>
-                  <Globe className="w-10 h-10" />
-              </div>
-
-              <div className="space-y-2">
-                  <h3 className="text-xl font-bold">Enter Web Address</h3>
-                  <p className="opacity-70 text-sm">Paste a URL to generate an accessible reader view.</p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="w-full space-y-4">
-                  <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
-                          <LinkIcon className="w-5 h-5" />
+              <form onSubmit={handleSubmit} className="w-full space-y-6">
+                  <div className="space-y-2 text-left">
+                      <label htmlFor="url-input" className="text-sm font-bold uppercase tracking-wider opacity-60 ml-1">
+                          Article URL
+                      </label>
+                      <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none opacity-50 group-focus-within:opacity-100 transition-opacity">
+                              <Globe className="w-5 h-5" />
+                          </div>
+                          <input 
+                              id="url-input"
+                              type="url" 
+                              placeholder="https://www.news.com/article..." 
+                              value={url}
+                              onChange={(e) => setUrl(e.target.value)}
+                              required
+                              className={clsx(
+                                  "w-full pl-12 pr-12 py-4 rounded-xl border outline-none transition-all text-lg",
+                                  isHighContrast 
+                                    ? "bg-black border-2 border-yellow-300 text-yellow-300 placeholder-yellow-700 focus:ring-4 focus:ring-yellow-500/50"
+                                    : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-black focus:border-[#FFC107] focus:ring-4 focus:ring-[#FFC107]/20"
+                              )}
+                          />
+                          <button 
+                              type="button"
+                              onClick={handlePaste}
+                              className="absolute inset-y-0 right-0 px-4 flex items-center opacity-50 hover:opacity-100 transition-opacity"
+                              aria-label="Paste from Clipboard"
+                              title="Paste"
+                          >
+                              <Clipboard className="w-5 h-5" />
+                          </button>
                       </div>
-                      <input 
-                          type="url" 
-                          placeholder="https://example.com/story..." 
-                          value={url}
-                          onChange={(e) => setUrl(e.target.value)}
-                          required
-                          className={clsx(
-                              "w-full pl-10 pr-12 py-3 rounded-lg border outline-none focus:ring-2",
-                              isHighContrast 
-                                ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700 focus:ring-yellow-500"
-                                : "bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500"
-                          )}
-                      />
-                      <button 
-                          type="button"
-                          onClick={handlePaste}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center opacity-70 hover:opacity-100"
-                          aria-label="Paste from Clipboard"
-                      >
-                          <Clipboard className="w-5 h-5" />
-                      </button>
                   </div>
 
                   <Button 
                       label="Read This Page" 
                       type="submit"
                       colorMode={settings.colorMode} 
-                      className="w-full text-lg py-3 !bg-[#FFC107] hover:!bg-yellow-400 text-black border-none shadow-md"
-                      icon={<ArrowRight className="w-5 h-5" />}
+                      className="w-full text-lg py-4 !bg-[#FFC107] hover:!bg-yellow-400 text-black border-none shadow-lg active:scale-[0.98] transition-all rounded-xl font-bold"
+                      icon={<ArrowRight className="w-6 h-6" />}
                   />
               </form>
           </div>
 
-          <div className="text-center opacity-60 text-sm">
-              <p>Powered by PineX. Works on news, blogs, and text-heavy sites.</p>
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 opacity-80">
+              <div className="flex flex-col items-center text-center p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border border-transparent dark:border-gray-700">
+                  <Layout className="w-6 h-6 mb-2 text-[#FFC107]" />
+                  <span className="font-bold text-sm">Clean Layout</span>
+                  <span className="text-xs opacity-70">No ads or popups</span>
+              </div>
+              <div className="flex flex-col items-center text-center p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border border-transparent dark:border-gray-700">
+                  <Type className="w-6 h-6 mb-2 text-[#FFC107]" />
+                  <span className="font-bold text-sm">Accessible</span>
+                  <span className="text-xs opacity-70">Real headings & tables</span>
+              </div>
+              <div className="flex flex-col items-center text-center p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 border border-transparent dark:border-gray-700">
+                  <ShieldCheck className="w-6 h-6 mb-2 text-[#FFC107]" />
+                  <span className="font-bold text-sm">Private</span>
+                  <span className="text-xs opacity-70">Read securely</span>
+              </div>
           </div>
       </div>
     </div>
