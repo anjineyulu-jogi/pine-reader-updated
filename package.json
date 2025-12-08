@@ -1,13 +1,14 @@
+
 {
   "name": "pine-reader",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "android:init": "npm install @capacitor/core @capacitor/cli @capacitor/android && npx cap init PineReader com.pineapple.pinereader --web-dir=dist && npx cap add android",
+    "android:init": "npm install @capacitor/core @capacitor/cli @capacitor/android && npx cap init PineReader com.thepineapple.pinereader --web-dir=dist && npx cap add android",
     "android:open": "npx cap open android"
   },
   "dependencies": {

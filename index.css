@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,11 +13,29 @@
   outline-offset: 2px;
 }
 
-/* Semantic Content Styling for generated HTML */
-.semantic-content h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; }
-.semantic-content h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
-.semantic-content h3 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; }
-.semantic-content p { margin-bottom: 1em; line-height: 1.6; text-align: justify; }
+/* Screen Reader Only Class - Hides content visually but keeps it accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Semantic Content Styling for generated HTML (Reflow Mode) */
+.semantic-content h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; line-height: 1.2; }
+.semantic-content h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; border-bottom: 1px solid currentColor; padding-bottom: 0.2em; line-height: 1.3; }
+.semantic-content h3 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; line-height: 1.4; }
+
+.semantic-content p { 
+  margin-bottom: 1em; 
+  line-height: inherit; 
+  text-align: left; 
+}
 
 /* Table Styling */
 .semantic-content table { 
@@ -48,7 +67,48 @@
 .semantic-content a { color: #1a73e8; text-decoration: underline; font-weight: 500; }
 .high-contrast .semantic-content a { color: #00FF00; }
 
-/* Safe area padding for bottom nav */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* PRINT STYLES FOR SAVE AS PDF */
+@media print {
+  /* Hide all UI elements */
+  header, footer, nav, button, .bottom-dock, .pwa-nav, .no-print {
+    display: none !important;
+  }
+  
+  /* Reset container styles */
+  body, #root, main, div {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: static !important;
+  }
+
+  /* Show only semantic content */
+  .semantic-content {
+    display: block !important;
+    font-size: 12pt !important;
+    color: black !important;
+    padding: 2cm !important;
+  }
+
+  /* Ensure visually hidden content for screen readers IS printed if it's the main text */
+  .sr-only {
+     position: static !important;
+     width: auto !important;
+     height: auto !important;
+     clip: auto !important;
+     white-space: normal !important;
+     overflow: visible !important;
+  }
+
+  /* Hide raw canvas */
+  canvas {
+      display: none !important;
+  }
 }

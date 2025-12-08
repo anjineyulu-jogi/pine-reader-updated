@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Info } from 'lucide-react';
+import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles } from 'lucide-react';
 import { AppSettings, ColorMode } from '../types';
 import { Button } from './ui/Button';
 import { AVAILABLE_VOICES } from '../constants';
 import clsx from 'clsx';
+import { PineappleLogo } from './ui/PineappleLogo';
 
 interface SettingsPanelProps {
   settings: AppSettings;
@@ -44,9 +45,12 @@ Sent via Pine-reader App`
 
   return (
     <div className="flex-1 overflow-y-auto p-6 pb-24 space-y-6 max-w-2xl mx-auto w-full animate-in fade-in duration-300">
-      <header>
-        <h2 className="text-3xl font-bold mb-2">Settings</h2>
-        <p className="opacity-80">Customize your reading experience.</p>
+      <header className="flex items-center gap-3">
+        <PineappleLogo className="w-10 h-10" />
+        <div>
+            <h2 className="text-3xl font-bold">Settings</h2>
+            <p className="opacity-80 text-sm">Customize your reading experience.</p>
+        </div>
       </header>
 
       {/* Color Mode */}
@@ -136,17 +140,14 @@ Sent via Pine-reader App`
                 <Plus className="w-6 h-6" />
               </Button>
           </div>
-          <p className="text-lg mt-4 p-4 border rounded bg-opacity-10 bg-gray-500" style={{ fontSize: `${settings.fontSize}rem` }}>
-             Preview text size.
-          </p>
       </section>
 
       {/* Voice Settings */}
       <section className={clsx(sectionClass, sectionStyle)}>
            <h3 className="font-bold text-xl flex items-center gap-2">
-              <Volume2 className="w-6 h-6" /> Text-to-Speech Config
+              <Volume2 className="w-6 h-6" /> Voice Config
            </h3>
-           <p className="text-sm opacity-70 mb-4">Select your preferred voice and reading speed.</p>
+           <p className="text-sm opacity-70 mb-4">Select your preferred voice for reading.</p>
 
            <div className="space-y-4">
                <div>
@@ -167,19 +168,6 @@ Sent via Pine-reader App`
                     ))}
                   </select>
                </div>
-
-               <div>
-                  <label className="block font-medium mb-2">Speed ({settings.speechRate.toFixed(1)}x)</label>
-                  <input 
-                      type="range" 
-                      min="0.5" 
-                      max="2.0" 
-                      step="0.1" 
-                      value={settings.speechRate}
-                      onChange={(e) => handleChange('speechRate', parseFloat(e.target.value))}
-                      className="w-full h-4 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700 accent-blue-600"
-                  />
-               </div>
            </div>
       </section>
 
@@ -188,66 +176,11 @@ Sent via Pine-reader App`
            <h3 className="font-bold text-xl flex items-center gap-2">
               <Mail className="w-6 h-6" /> Send Feedback
            </h3>
-           <p className="text-sm opacity-70 mb-4">Report bugs or send suggestions to the developer.</p>
            
            <form onSubmit={handleFeedback} className="space-y-4">
-              <div>
-                  <label htmlFor="email" className="block font-medium mb-1">Your Email</label>
-                  <input 
-                      id="email"
-                      type="email" 
-                      value={feedbackEmail}
-                      onChange={(e) => setFeedbackEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className={clsx(
-                          "w-full p-3 rounded-lg border",
-                          settings.colorMode === ColorMode.HIGH_CONTRAST 
-                            ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700"
-                            : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
-                      )}
-                      required
-                  />
-              </div>
-
-              <div>
-                  <label htmlFor="subject" className="block font-medium mb-1">Subject</label>
-                  <input 
-                      id="subject"
-                      type="text" 
-                      value={feedbackSubject}
-                      onChange={(e) => setFeedbackSubject(e.target.value)}
-                      placeholder="Brief topic..."
-                      className={clsx(
-                          "w-full p-3 rounded-lg border",
-                          settings.colorMode === ColorMode.HIGH_CONTRAST 
-                            ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700"
-                            : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
-                      )}
-                      required
-                  />
-              </div>
-              
-              <div>
-                  <label htmlFor="message" className="block font-medium mb-1">Message</label>
-                  <textarea 
-                      id="message"
-                      value={feedbackMsg}
-                      onChange={(e) => setFeedbackMsg(e.target.value)}
-                      placeholder="Describe your issue or idea..."
-                      rows={4}
-                      className={clsx(
-                          "w-full p-3 rounded-lg border",
-                          settings.colorMode === ColorMode.HIGH_CONTRAST 
-                            ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700"
-                            : "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
-                      )}
-                      required
-                  />
-              </div>
-
               <Button 
                   colorMode={settings.colorMode} 
-                  label="Send Feedback" 
+                  label="Send Feedback via Email" 
                   type="submit"
                   className="w-full"
                   icon={<Send className="w-5 h-5" />}
@@ -257,40 +190,54 @@ Sent via Pine-reader App`
 
       {/* About Section */}
       <section className={clsx(sectionClass, sectionStyle)}>
-           <h3 className="font-bold text-xl flex items-center gap-2">
-              <Info className="w-6 h-6" /> About Pine-reader
-           </h3>
-           
-           <div className="space-y-4">
-              <div>
-                <p className="font-bold text-lg">The-Pineapple Company</p>
-                <p className="text-sm opacity-70">Version 1.0.0</p>
-              </div>
-              
-              <p className="opacity-90 leading-relaxed">
-                An accessible, high-contrast document reader optimized for blind and low-vision users. 
-                Features local PDF parsing, text-to-speech readiness, and AI integration for enhanced document structure recovery.
-              </p>
+           <div className="flex flex-col items-center text-center space-y-2 py-4">
+              <PineappleLogo className="w-16 h-16 mb-2 text-yellow-500 drop-shadow-sm" />
+              <h3 className="font-bold text-2xl">The Pineapple Company</h3>
+              <p className="font-medium italic opacity-80 text-lg">The crown stays on. 🍍</p>
+           </div>
 
-              <div className={clsx(
-                  "p-4 rounded-lg border mt-4",
-                  settings.colorMode === ColorMode.HIGH_CONTRAST
-                    ? "border-yellow-300" 
-                    : "bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600"
-              )}>
-                  <h4 className="font-bold mb-3">Contact Developer</h4>
-                  <ul className="space-y-3 text-base">
-                    <li className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <span className="opacity-80 flex items-center gap-2"><Mail className="w-4 h-4" /> Email:</span>
-                      <a href="mailto:hello.jogi@proton.me" className="underline font-medium hover:opacity-80">hello.jogi@proton.me</a>
-                    </li>
-                    <li className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <span className="opacity-80 flex items-center gap-2"><Phone className="w-4 h-4" /> Mobile:</span>
-                      <a href="tel:+919611249874" className="underline font-medium hover:opacity-80">+91 9611249874</a>
-                    </li>
-                  </ul>
+           <div className="border-t border-b py-6 border-inherit border-opacity-20 space-y-6">
+              <div className="text-center">
+                  <h4 className="font-bold text-xl">Pine Reader</h4>
+                  <p className="text-xs uppercase tracking-[0.2em] opacity-70 mt-1 font-semibold">Read the way you live.</p>
+              </div>
+
+              <div className="text-base leading-relaxed space-y-4 opacity-90 px-2 text-center sm:text-left">
+                  <p>
+                    Pine Reader is the first document reader built equally for blind and sighted users — with zero compromise.
+                  </p>
+                  <p>
+                    Read any PDF, DOCX, XLSX, or text file exactly like Adobe Acrobat Reader mobile, while TalkBack reads real headings, tables, links, and images perfectly.
+                  </p>
+                  <p>
+                    Powered by PineX — your personal assistant that reads the entire document and answers any question instantly.
+                  </p>
               </div>
            </div>
+
+           <div className="text-center space-y-1 py-2">
+              <p className="font-medium">Made with ❤️ in India</p>
+              <p className="opacity-70 text-sm">Version 2.0.0</p>
+           </div>
+
+           {/* Changelog */}
+           <details className={clsx(
+              "group p-4 rounded-lg border mt-4 cursor-pointer",
+              settings.colorMode === ColorMode.HIGH_CONTRAST
+                ? "border-yellow-300 bg-yellow-900/10" 
+                : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
+           )}>
+              <summary className="font-bold flex items-center gap-2 list-none select-none">
+                 <Sparkles className="w-4 h-4" /> Launch Features v2.0
+              </summary>
+              <ul className="space-y-2 text-sm opacity-90 list-disc pl-4 mt-3">
+                 <li><strong>Save as PDF:</strong> Export clean, accessible PDFs.</li>
+                 <li><strong>Web Reader:</strong> Read any URL without clutter.</li>
+                 <li><strong>Voice Commands:</strong> Control the app with your voice.</li>
+                 <li><strong>Night Mode:</strong> Easy toggle in reader view.</li>
+                 <li><strong>Smart Sharing:</strong> Share bookmarks and text easily.</li>
+              </ul>
+           </details>
       </section>
     </div>
   );

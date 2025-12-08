@@ -1,0 +1,5 @@
+{
+  "display_override": ["standalone", "fullscreen"],
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

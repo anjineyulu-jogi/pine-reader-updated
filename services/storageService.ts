@@ -1,7 +1,9 @@
 
 const DB_NAME = 'PineReaderDB';
 const STORE_FILES = 'files';
-const DB_VERSION = 2; // Incremented version for schema change
+const STORE_BOOKMARKS = 'bookmarks';
+const STORE_AUDIO = 'audio';
+const DB_VERSION = 5; // Incremented for Audio store
 
 // Interface for what we store in IndexedDB
 export interface StoredFileEntry {
@@ -21,6 +23,16 @@ export interface StoredFileMetadata {
     lastOpened: number;
 }
 
+export interface StoredBookmark {
+  id: string;
+  fileId: string;
+  fileName: string;
+  text: string;
+  type: 'HEADING' | 'LINK' | 'TABLE' | 'TEXT';
+  pageNumber: number;
+  timestamp: number;
+}
+
 // Open Database
 const openDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
@@ -35,6 +47,16 @@ const openDB = (): Promise<IDBDatabase> => {
             if (!db.objectStoreNames.contains(STORE_FILES)) {
                 db.createObjectStore(STORE_FILES, { keyPath: 'id' });
             }
+            if (!db.objectStoreNames.contains(STORE_BOOKMARKS)) {
+                db.createObjectStore(STORE_BOOKMARKS, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(STORE_AUDIO)) {
+                db.createObjectStore(STORE_AUDIO, { keyPath: 'id' });
+            }
+        };
+
+        request.onblocked = () => {
+            console.warn("Database upgrade blocked. Please close other tabs of this app.");
         };
     });
 };
@@ -88,6 +110,7 @@ export const getRecentFilesList = async (): Promise<StoredFileMetadata[]> => {
             request.onerror = () => resolve([]); 
         });
     } catch (e) {
+        console.warn("Could not retrieve recent files", e);
         return [];
     }
 };
@@ -120,6 +143,94 @@ export const getStoredFile = async (id: string): Promise<File | null> => {
     }
 };
 
+// --- BOOKMARKS OPERATIONS ---
+
+export const saveBookmark = async (bookmark: StoredBookmark): Promise<void> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_BOOKMARKS, 'readwrite');
+            const store = tx.objectStore(STORE_BOOKMARKS);
+            const request = store.put(bookmark);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject("Failed to save bookmark");
+        });
+    } catch (e) { console.error(e); }
+};
+
+export const getBookmarks = async (): Promise<StoredBookmark[]> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_BOOKMARKS, 'readonly');
+            const store = tx.objectStore(STORE_BOOKMARKS);
+            const request = store.getAll();
+            request.onsuccess = () => {
+                const results = request.result as StoredBookmark[];
+                // Sort by most recent
+                resolve(results.sort((a, b) => b.timestamp - a.timestamp));
+            };
+            request.onerror = () => resolve([]);
+        });
+    } catch (e) { return []; }
+};
+
+export const deleteBookmark = async (id: string): Promise<void> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_BOOKMARKS, 'readwrite');
+            const store = tx.objectStore(STORE_BOOKMARKS);
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject("Failed to delete bookmark");
+        });
+    } catch (e) { console.error(e); }
+};
+
+// --- AUDIO CACHE OPERATIONS ---
+
+export const saveAudioData = async (fileId: string, pageNumber: number, audioData: ArrayBuffer): Promise<void> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_AUDIO, 'readwrite');
+            const store = tx.objectStore(STORE_AUDIO);
+            const id = `${fileId}_p${pageNumber}`;
+            // Store as Blob for efficiency
+            const blob = new Blob([audioData], { type: 'audio/pcm' });
+            
+            const request = store.put({ id, data: blob, timestamp: Date.now() });
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject("Failed to save audio");
+        });
+    } catch (e) { console.error(e); }
+};
+
+export const getAudioData = async (fileId: string, pageNumber: number): Promise<ArrayBuffer | null> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_AUDIO, 'readonly');
+            const store = tx.objectStore(STORE_AUDIO);
+            const id = `${fileId}_p${pageNumber}`;
+            const request = store.get(id);
+            
+            request.onsuccess = async () => {
+                const result = request.result;
+                if (result && result.data) {
+                    const blob = result.data as Blob;
+                    const buffer = await blob.arrayBuffer();
+                    resolve(buffer);
+                } else {
+                    resolve(null);
+                }
+            };
+            request.onerror = () => resolve(null);
+        });
+    } catch (e) { return null; }
+};
+
 // Backward compatibility (gets the most recent file)
 export const getRecentFileFromStorage = async (): Promise<File | null> => {
     const list = await getRecentFilesList();
@@ -131,16 +242,20 @@ export const getRecentFileFromStorage = async (): Promise<File | null> => {
 
 // Save page progress to LocalStorage
 export const saveReadingProgress = (fileName: string, pageIndex: number, scrollTop: number = 0) => {
-    const data = { pageIndex, scrollTop };
-    localStorage.setItem(`pine_progress_${fileName}`, JSON.stringify(data));
+    try {
+        const data = { pageIndex, scrollTop };
+        localStorage.setItem(`pine_progress_${fileName}`, JSON.stringify(data));
+    } catch (e) {
+        console.warn("LocalStorage access denied");
+    }
 };
 
 // Get page progress from LocalStorage
 export const getReadingProgress = (fileName: string): { pageIndex: number, scrollTop: number } => {
-    const stored = localStorage.getItem(`pine_progress_${fileName}`);
-    if (!stored) return { pageIndex: 0, scrollTop: 0 };
-    
     try {
+        const stored = localStorage.getItem(`pine_progress_${fileName}`);
+        if (!stored) return { pageIndex: 0, scrollTop: 0 };
+        
         if (!stored.trim().startsWith('{')) {
             const pageIndex = parseInt(stored, 10);
             return { pageIndex: isNaN(pageIndex) ? 0 : pageIndex, scrollTop: 0 };

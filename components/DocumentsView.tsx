@@ -6,6 +6,7 @@ import { ColorMode, AppSettings } from '../types';
 import { StoredFileMetadata } from '../services/storageService';
 import clsx from 'clsx';
 import { UI_CLASSES } from '../constants';
+import { PineappleLogo } from './ui/PineappleLogo';
 
 interface DocumentsViewProps {
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -38,9 +39,12 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
 
   return (
     <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300 pb-24 overflow-y-auto">
-      <header className="mb-8">
-        <h2 className="text-3xl font-bold mb-2">Documents</h2>
-        <p className="opacity-80">Open a PDF, DOCX, XLSX, Text file, or Image to start reading with AI enhancement.</p>
+      <header className="mb-8 flex items-center gap-3">
+        <PineappleLogo className="w-10 h-10" />
+        <div>
+            <h2 className="text-3xl font-bold">Documents</h2>
+            <p className="opacity-80 text-sm mt-1">Open a PDF, DOCX, XLSX, Text file, or Image.</p>
+        </div>
       </header>
 
       <div className="space-y-8 max-w-2xl mx-auto w-full">

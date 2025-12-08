@@ -3,8 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Pine-reader</title>
+    <title>Pine Reader</title>
     <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/icon-512.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- Native App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Pine Reader">
+
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     
@@ -12,18 +21,19 @@
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^18.2.0/",
+    "react": "https://aistudiocdn.com/react@^18.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^18.2.0/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^18.2.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
     "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "mammoth": "https://aistudiocdn.com/mammoth@^1.11.0",
-    "pdfjs-dist/": "https://aistudiocdn.com/pdfjs-dist@^5.4.449/",
-    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
-    "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5"
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.344.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^4.2.1",
+    "vite": "https://aistudiocdn.com/vite@^5.1.5",
+    "mammoth": "https://esm.sh/mammoth@1.7.1",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
+    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@3.11.174/",
+    "xlsx": "https://esm.sh/xlsx@0.18.5"
   }
 }
 </script>
