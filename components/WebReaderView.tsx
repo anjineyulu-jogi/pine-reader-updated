@@ -5,6 +5,7 @@ import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
 import { triggerHaptic } from '../services/hapticService';
+import { playCompletionSound } from '../services/audioService';
 
 interface WebReaderViewProps {
   settings: AppSettings;
@@ -51,7 +52,9 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
 
     try {
       await onReadUrl(url.trim());
-      // On success, the view will likely unmount or change in App.tsx
+      // On success
+      triggerHaptic('success');
+      playCompletionSound();
     } catch (err) {
       setError("Failed to load page. Please check the URL.");
       setIsLoading(false); 

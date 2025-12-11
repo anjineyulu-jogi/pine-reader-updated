@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft } from 'lucide-react';
-import { Chat, ChatMessage } from '../types';
-import { createChatSession } from '../services/geminiService';
+import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff } from 'lucide-react';
+import { Chat, ChatMessage, AppSettings, ColorMode, Content } from '../types';
+import { createChatSession, startLiveSession } from '../services/geminiService';
 import { Button } from './ui/Button';
-import { AppSettings, ColorMode } from '../types';
-import { Content } from "@google/genai";
 import clsx from 'clsx';
 import { THEME_CLASSES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { PineappleLogo } from './ui/PineappleLogo';
+import { playCompletionSound, playStartSound } from '../services/audioService';
 
 interface PineXProps {
   pageContext?: string; 
@@ -41,6 +40,12 @@ export const PineX: React.FC<PineXProps> = ({
   const [useSearch, setUseSearch] = useState(false);
   const [useThinking, setUseThinking] = useState(false);
   
+  // LIVE MODE STATE
+  const [isLiveActive, setIsLiveActive] = useState(false);
+  const [liveVolume, setLiveVolume] = useState(0);
+  const [liveStatus, setLiveStatus] = useState<'Connecting...' | 'Listening' | 'Speaking' | 'Error'>('Connecting...');
+  const stopLiveSessionRef = useRef<() => void>(() => {});
+
   const chatSession = useRef<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
@@ -71,13 +76,70 @@ export const PineX: React.FC<PineXProps> = ({
     scrollToBottom();
   }, [messages, isLoading]);
 
+  useEffect(() => {
+      // Cleanup live session on unmount
+      return () => {
+          if (stopLiveSessionRef.current) stopLiveSessionRef.current();
+      };
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleClearChat = () => {
-      const initialMsg: ChatMessage = { role: 'model', text: 'Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍' };
+      let text = "Hi! I'm Pine-X. I can help you change settings, navigate the app, or answer general questions. 🍍";
+      
+      if (pageContext) {
+          // Attempt to extract document name from context string "Document: Name\n..."
+          // Fallback to "your document" if parsing fails
+          const nameMatch = pageContext.match(/Document: (.*?)\n/);
+          const docName = nameMatch ? nameMatch[1] : "your document";
+          text = `Hi! I'm Pine-X. I'm ready to help you with "${docName}". Ask me anything. 🍍`;
+      }
+      
+      const initialMsg: ChatMessage = { role: 'model', text };
       onUpdateMessages([initialMsg]);
+  };
+
+  const handleToggleLive = async () => {
+      if (isLiveActive) {
+          // Stop Session
+          stopLiveSessionRef.current();
+          setIsLiveActive(false);
+          triggerHaptic('medium');
+      } else {
+          // Start Session
+          setIsLiveActive(true);
+          setLiveStatus('Connecting...');
+          triggerHaptic('medium');
+          playStartSound();
+
+          const stop = await startLiveSession(
+              {
+                  onConnect: () => {
+                      setLiveStatus('Listening');
+                      triggerHaptic('success');
+                  },
+                  onDisconnect: () => {
+                      setIsLiveActive(false);
+                      triggerHaptic('light');
+                  },
+                  onError: (e) => {
+                      setLiveStatus('Error');
+                      triggerHaptic('error');
+                      setTimeout(() => setIsLiveActive(false), 2000);
+                  },
+                  onAudioLevel: (level) => {
+                      // Smooth visually
+                      setLiveVolume(prev => prev * 0.8 + level * 0.2);
+                  }
+              },
+              settings.voiceName,
+              pageContext
+          );
+          stopLiveSessionRef.current = stop;
+      }
   };
 
   const handleSend = async (e?: React.FormEvent) => {
@@ -96,11 +158,13 @@ export const PineX: React.FC<PineXProps> = ({
       // Send message
       const result = await chatSession.current.sendMessage({ message: userMsg });
       
-      // 1. Handle Function Calls (App Control)
+      // 1. Handle Function Calls (App Control) - Execute side effects
       const toolCalls = result.functionCalls;
+      let actionTaken = false;
       if (toolCalls && toolCalls.length > 0 && onControlAction) {
           for (const call of toolCalls) {
               onControlAction(call.name, call.args);
+              actionTaken = true;
           }
       }
 
@@ -110,29 +174,35 @@ export const PineX: React.FC<PineXProps> = ({
       const sources = groundingChunks?.map((chunk: any) => chunk.web).filter((w: any) => w);
 
       if (responseText) {
+        // If we have text, show it (even if tools were called)
         onUpdateMessages([...newHistory, { 
             role: 'model', 
             text: responseText,
             sources: sources
         }]);
         triggerHaptic('light');
-      } else if (toolCalls && toolCalls.length > 0) {
-        // Fallback: If tool was called but no text returned, show confirmation
+      } else if (actionTaken) {
+        // Fallback: Only show "Action completed" if NO text was returned but an action WAS taken.
         onUpdateMessages([...newHistory, { 
             role: 'model', 
-            text: "Action completed! 🍍" 
+            text: "Done! I've updated the app settings as requested. 🍍" 
         }]);
         triggerHaptic('success');
       } else {
-        throw new Error("Empty response");
+        // No text, no tools. This shouldn't happen often.
+        onUpdateMessages([...newHistory, { 
+            role: 'model', 
+            text: "I didn't quite get that. Could you rephrase?" 
+        }]);
       }
 
     } catch (error) {
-      console.error("PineX Error", error);
+      console.error("Pine-X Error", error);
       onUpdateMessages([...newHistory, { role: 'model', text: "I'm having trouble connecting right now. Please try again or check your internet." }]);
       triggerHaptic('error');
     } finally {
       setIsLoading(false);
+      playCompletionSound();
     }
   };
 
@@ -143,8 +213,80 @@ export const PineX: React.FC<PineXProps> = ({
         isHighContrast ? "bg-black" : "bg-white dark:bg-gray-900"
       );
 
+  // --- LIVE OVERLAY RENDER ---
+  if (isLiveActive) {
+      return (
+          <div className={clsx(
+              "absolute inset-0 z-[100] flex flex-col items-center justify-center animate-in fade-in duration-300",
+              isHighContrast ? "bg-black" : "bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-gray-950"
+          )}>
+               <div className="absolute top-6 right-6">
+                   <Button 
+                        label="Close" 
+                        onClick={handleToggleLive} 
+                        colorMode={settings.colorMode} 
+                        variant="ghost" 
+                        icon={<X className="w-8 h-8" />}
+                   />
+               </div>
+
+               {/* Visualizer */}
+               <div className="relative mb-12 flex items-center justify-center">
+                   {/* Ripple Effect */}
+                   <div 
+                        className={clsx(
+                            "absolute inset-0 rounded-full opacity-30 animate-ping",
+                            isHighContrast ? "bg-yellow-300" : "bg-blue-500"
+                        )}
+                        style={{ transform: `scale(${1 + liveVolume * 5})` }}
+                   />
+                   <div 
+                        className={clsx(
+                            "absolute inset-0 rounded-full opacity-20",
+                            isHighContrast ? "bg-yellow-300" : "bg-blue-400"
+                        )}
+                        style={{ transform: `scale(${1 + liveVolume * 3})`, transition: 'transform 0.1s' }}
+                   />
+                   
+                   <div className={clsx(
+                       "w-32 h-32 rounded-full flex items-center justify-center shadow-2xl relative z-10",
+                       isHighContrast ? "bg-yellow-300 text-black border-4 border-white" : "bg-white dark:bg-gray-800"
+                   )}>
+                       <PineappleLogo className="w-20 h-20" />
+                   </div>
+               </div>
+
+               <h3 className={clsx(
+                   "text-2xl font-bold mb-8 animate-pulse",
+                   isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white"
+               )}>
+                   {liveStatus}
+               </h3>
+
+               {/* End Button */}
+               <Button 
+                   label="End Voice Chat"
+                   onClick={handleToggleLive}
+                   colorMode={settings.colorMode}
+                   className={clsx(
+                       "w-20 h-20 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all border-4",
+                       isHighContrast ? "bg-red-600 border-yellow-300 text-white" : "bg-red-500 border-red-200 text-white hover:bg-red-600"
+                   )}
+                   icon={<PhoneOff className="w-8 h-8 fill-current" />}
+               />
+               
+               <p className={clsx(
+                   "mt-8 text-sm font-medium opacity-70",
+                   isHighContrast ? "text-yellow-100" : "text-gray-500"
+               )}>
+                   Gemini Live is active
+               </p>
+          </div>
+      );
+  }
+
   return (
-    <div className={containerClass} role="region" aria-label="PineX AI Assistant">
+    <div className={containerClass} role="region" aria-label="Pine-X AI Assistant">
       {/* HEADER */}
       <div className={clsx(
           "shrink-0 flex justify-between items-center z-20 backdrop-blur-md sticky top-0",
@@ -164,12 +306,26 @@ export const PineX: React.FC<PineXProps> = ({
              <div className="flex items-center gap-2">
                 <PineappleLogo className="w-8 h-8 drop-shadow-md" />
                 <h2 className={clsx("font-bold tracking-tight", isEmbedded ? "text-xl" : "text-xl")}>
-                    PineX
+                    Pine-X
                 </h2>
              </div>
           </div>
 
           <div className="flex items-center gap-2">
+               {/* MIC BUTTON FOR LIVE API */}
+               <button
+                  onClick={handleToggleLive}
+                  className={clsx(
+                      "p-2 rounded-lg transition-all-300 mr-2",
+                      isHighContrast 
+                        ? "text-yellow-300 border-2 border-yellow-300 hover:bg-yellow-300 hover:text-black" 
+                        : "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100"
+                  )}
+                  aria-label="Start Voice Chat"
+               >
+                   <Mic className="w-5 h-5" />
+               </button>
+
                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                    <button
                       onClick={() => setUseSearch(!useSearch)}
@@ -207,7 +363,7 @@ export const PineX: React.FC<PineXProps> = ({
                    <Trash2 className="w-5 h-5" />
                </button>
                
-               {!isEmbedded && (
+               {onClose && (
                    <div className="ml-2">
                        <Button label="Close" onClick={onClose} colorMode={settings.colorMode} variant="secondary" icon={<X className="w-5 h-5" />} />
                    </div>
@@ -222,14 +378,8 @@ export const PineX: React.FC<PineXProps> = ({
                 "w-full flex animate-in slide-in-from-bottom-2 duration-300",
                 msg.role === 'user' ? "justify-end" : "justify-start"
             )}>
-                {msg.role === 'model' && (
-                     <div className="shrink-0 mr-3 mt-auto mb-1">
-                         <PineappleLogo className="w-8 h-8 drop-shadow-md" />
-                     </div>
-                )}
-                
                 <div className={clsx(
-                    "max-w-[85%] p-4 text-[1.05rem] leading-relaxed flex flex-col gap-2 shadow-sm relative transition-all-300",
+                    "max-w-[90%] p-4 text-[1.05rem] leading-relaxed flex flex-col gap-2 shadow-sm relative transition-all-300",
                     msg.role === 'user' 
                         ? (isHighContrast 
                             ? "rounded-2xl rounded-tr-sm bg-yellow-300 text-black font-bold border-2 border-white" 
@@ -288,7 +438,7 @@ export const PineX: React.FC<PineXProps> = ({
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask PineX anything..."
+                    placeholder="Ask Pine-X anything..."
                     aria-label="Message Input"
                     className={clsx(
                         "w-full px-6 py-4 rounded-3xl focus:outline-none focus:ring-2 text-base shadow-sm transition-all-300",

@@ -30,7 +30,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, c
 
   const tabs = [
     { id: Tab.DOCUMENTS, label: 'Docs', icon: <Home className="w-6 h-6" /> },
-    { id: Tab.PINEX, label: 'PineX', icon: <MessageSquare className="w-6 h-6" /> },
+    { id: Tab.PINEX, label: 'Pine-X', icon: <MessageSquare className="w-6 h-6" /> },
     { id: Tab.BOOKMARKS, label: 'Bookmarks', icon: <Bookmark className="w-6 h-6" /> },
     { id: Tab.WEB_READER, label: 'Web', icon: <Globe className="w-6 h-6" /> },
     { id: Tab.SETTINGS, label: 'Settings', icon: <Settings className="w-6 h-6" /> },
@@ -70,7 +70,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, c
                         ? (isHighContrast ? "bg-yellow-300 text-black" : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200") 
                         : "bg-transparent text-gray-500 dark:text-gray-400 group-hover:bg-gray-100 dark:group-hover:bg-white/5"
                 )}>
-                    {React.cloneElement(tab.icon as React.ReactElement, {
+                    {React.cloneElement(tab.icon as React.ReactElement<any>, {
                         strokeWidth: isActive ? 2.5 : 2,
                         className: "w-6 h-6"
                     })}

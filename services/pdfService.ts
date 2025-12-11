@@ -11,8 +11,9 @@ export const getPDFProxy = async (file: File): Promise<any> => {
     const mod = await import('pdfjs-dist');
     const pdfjsLib = mod.getDocument ? mod : (mod.default || mod);
 
+    // CRITICAL: Use the mjs worker that matches the v5.x version from importmap
     if (pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs";
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -27,9 +28,9 @@ export const parsePDF = async (file: File): Promise<ParsedDocument> => {
   // Robustly find the library object whether it's a named export or default export
   const pdfjsLib = mod.getDocument ? mod : (mod.default || mod);
 
-  // Configure worker
+  // CRITICAL: Use the mjs worker that matches the v5.x version from importmap
   if (pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs";
   }
 
   const arrayBuffer = await file.arrayBuffer();

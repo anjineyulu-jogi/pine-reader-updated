@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2, Sparkles, StopCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { parsePDF, parseTextFile, parseDocx, parseExcel, getPDFProxy } from './services/pdfService';
 import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline, summarizeSelection } from './services/geminiService';
@@ -16,6 +16,9 @@ import { OutlineView } from './components/OutlineView';
 import { SummaryModal } from './components/SummaryModal';
 import { triggerHaptic } from './services/hapticService';
 import { OnboardingTour } from './components/OnboardingTour';
+import { DocumentControls } from './components/DocumentControls';
+import { MoreOptionsModal } from './components/MoreOptionsModal';
+import { AudioControls } from './components/AudioControls';
 
 // --- LAZY LOADED COMPONENTS ---
 const PineX = React.lazy(() => import('./components/ChatBot').then(module => ({ default: module.PineX })));
@@ -52,8 +55,8 @@ export default function App() {
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
 
-  // Dock State
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  // Dock State (Deprecated in favor of new modal, but kept for legacy modal flag logic if needed, renamed mostly)
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   // Audio State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -81,7 +84,7 @@ export default function App() {
 
   // PineX State
   const [pineXMessages, setPineXMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: "Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍" }
+    { role: 'model', text: "Hi! I'm Pine-X. I can help you change settings, navigate the app, or answer general questions. 🍍" }
   ]);
 
   // Labels for current language
@@ -108,7 +111,7 @@ export default function App() {
     }
   }, [settings.language]);
 
-  // Chat Persistence: Load on Doc Open
+  // Chat Persistence: Load on Doc Open or Reset on Close
   useEffect(() => {
     if (currentDoc) {
         // Optimized: Only fetch if we switch to PineX tab or open doc
@@ -116,9 +119,12 @@ export default function App() {
             if (msgs && msgs.length > 0) {
                 setPineXMessages(msgs);
             } else {
-                setPineXMessages([{ role: 'model', text: "Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍" }]);
+                setPineXMessages([{ role: 'model', text: `Hi! I'm Pine-X. I'm ready to help you with "${currentDoc.metadata.name}". Ask me anything. 🍍` }]);
             }
         });
+    } else {
+        // Reset to general greeting if no document is open
+        setPineXMessages([{ role: 'model', text: "Hi! I'm Pine-X. I can help you change settings, navigate the app, or answer general questions. 🍍" }]);
     }
   }, [currentDoc?.metadata.name]);
 
@@ -203,7 +209,7 @@ export default function App() {
     stopAudio();
     audioCacheRef.current.clear(); 
     setPdfProxy(null);
-    setShowMoreMenu(false);
+    setShowMoreOptions(false);
     setOutline([]); // Clear outline
     
     try {
@@ -250,7 +256,7 @@ export default function App() {
 
   const handleWebUrl = async (url: string) => {
       setIsProcessing(true);
-      setShowMoreMenu(false);
+      setShowMoreOptions(false);
       setOutline([]);
       try {
           const langName = SUPPORTED_LANGUAGES.find(l => l.code === settings.language)?.name || 'English';
@@ -313,7 +319,7 @@ export default function App() {
     setShowOutline(false);
     stopAudio();
     setAudioModeActive(false);
-    setShowMoreMenu(false);
+    setShowMoreOptions(false);
     refreshRecentFiles();
     setActiveTab(Tab.DOCUMENTS);
     // Reset selection state
@@ -346,15 +352,7 @@ export default function App() {
       triggerHaptic('medium');
       setViewMode('reflow');
       setTimeout(() => window.print(), 100);
-      setShowMoreMenu(false);
-  };
-
-  const toggleNightMode = () => {
-      triggerHaptic('light');
-      setSettings(s => ({
-          ...s,
-          colorMode: s.colorMode === ColorMode.DARK ? ColorMode.LIGHT : ColorMode.DARK
-      }));
+      setShowMoreOptions(false);
   };
 
   // --- SUMMARIZATION LOGIC ---
@@ -511,7 +509,7 @@ export default function App() {
   };
   const handleReadPageButton = async () => {
     setAudioModeActive(true); 
-    setShowMoreMenu(false);
+    setShowMoreOptions(false);
     triggerHaptic('medium'); 
     await playAudioForPage(currentPageIndex);
   };
@@ -557,9 +555,8 @@ export default function App() {
       if (action === 'setFontSize') setSettings(s => ({ ...s, fontSize: params.action === 'increase' ? s.fontSize + 0.2 : s.fontSize - 0.2 }));
   };
 
-  const isReadingMode = (activeTab === Tab.DOCUMENTS || activeTab === Tab.PINEX) && !!currentDoc;
+  const isDocOpen = (activeTab === Tab.DOCUMENTS || activeTab === Tab.PINEX) && !!currentDoc;
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
-  const isDarkMode = settings.colorMode === ColorMode.DARK;
 
   const renderContent = () => {
       if (showOnboarding) {
@@ -600,7 +597,7 @@ export default function App() {
                           
                           {/* FLOATING SUMMARIZE BUTTON */}
                           {selectedText && !summaryResult && !isSummarizing && (
-                             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[55] animate-in zoom-in-90 duration-300">
+                             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[55] animate-in zoom-in-90 duration-300">
                                  <Button 
                                     label="Summarize Selection"
                                     onClick={handleSummarize}
@@ -616,53 +613,11 @@ export default function App() {
                              </div>
                           )}
 
-                          {/* FINAL BOTTOM DOCK WITH SLIDE TRANSITION */}
-                          <div className={clsx(
-                              "shrink-0 py-3 px-2 z-50 overflow-hidden transition-all duration-300",
-                              isHighContrast ? "bg-black border-t-2 border-yellow-300" : "bg-gray-900 border-t border-gray-800"
-                          )}>
-                              <div className={clsx("w-full transition-transform duration-300 ease-out", audioModeActive ? "-translate-y-full absolute opacity-0 pointer-events-none" : "translate-y-0 opacity-100")}>
-                                   {/* MAIN DOCK (4 Big Buttons) */}
-                                  <div className="grid grid-cols-4 gap-4 h-16 items-center max-w-lg mx-auto">
-                                      <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                      <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                      <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                      <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                  </div>
-                              </div>
-                              
-                              <div className={clsx("w-full transition-transform duration-300 ease-out", audioModeActive ? "translate-y-0 opacity-100 relative" : "translate-y-full absolute opacity-0 pointer-events-none top-3")}>
-                                  {/* AUDIO PLAYER DOCK */}
-                                  <div className="flex items-center justify-between gap-2 max-w-lg mx-auto relative px-2">
-                                      <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-6 h-6 text-[#FFC107]" />} />
-                                      <Button label={labels.rewind} variant="ghost" colorMode={settings.colorMode} onClick={handleRewind} icon={<SkipBack className="w-6 h-6 text-[#FFC107]" />} />
-                                      <Button 
-                                          label={isPlayingAudio ? labels.stop : labels.read} 
-                                          variant="ghost" 
-                                          colorMode={settings.colorMode} 
-                                          onClick={togglePlayPause} 
-                                          icon={isPlayingAudio ? <Pause className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" /> : <Play className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" />} 
-                                      />
-                                      <Button label={labels.forward} variant="ghost" colorMode={settings.colorMode} onClick={handleForward} icon={<SkipForward className="w-6 h-6 text-[#FFC107]" />} />
-                                      <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-6 h-6 text-[#FFC107]" />} />
-                                      
-                                      {/* Close Audio Mode */}
-                                      <button 
-                                          onClick={handleExitAudioMode}
-                                          className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700 touch-target transform transition-transform hover:scale-105 active:scale-95"
-                                          aria-label={labels.close}
-                                      >
-                                          <X className="w-6 h-6" />
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
                           {audioGenerating && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg bg-black/80 text-[#FFC107] flex items-center gap-3 border border-[#FFC107] animate-in fade-in zoom-in-95"><Loader2 className="w-5 h-5 animate-spin" /><span className="font-medium text-sm">Preparing voice...</span></div>}
                           
                           <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={currentDoc.metadata.pageCount} settings={settings} />
                           <OutlineView isOpen={showOutline} onClose={() => setShowOutline(false)} outline={outline} onJumpToText={(text) => setJumpToText(text)} settings={settings} />
                           
-                          {/* NEW SUMMARY MODAL */}
                           <SummaryModal 
                              isOpen={!!summaryResult || isSummarizing} 
                              onClose={handleCloseSummary} 
@@ -670,52 +625,6 @@ export default function App() {
                              isLoading={isSummarizing} 
                              settings={settings}
                           />
-
-                          {/* MORE MENU SHEET (Vertical Modal) */}
-                          {showMoreMenu && (
-                              <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowMoreMenu(false)}>
-                                  <div 
-                                      className={clsx(
-                                          "w-full max-w-lg rounded-t-2xl p-4 animate-in slide-in-from-bottom-10 duration-300 border-t-2",
-                                          isHighContrast ? "bg-black border-yellow-300 text-yellow-300" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                                      )}
-                                      onClick={e => e.stopPropagation()}
-                                  >
-                                      <div className="flex justify-between items-center mb-4 px-2">
-                                          <h3 className="text-xl font-bold">Options</h3>
-                                          <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6" />} />
-                                      </div>
-                                      <div className="flex flex-col gap-2">
-                                          <Button label={labels.read} variant="secondary" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                          
-                                          {/* Outline Button */}
-                                          <Button label="Table of Contents" variant="secondary" colorMode={settings.colorMode} onClick={() => { setShowMoreMenu(false); setShowOutline(true); }} icon={<List className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                          
-                                          <Button label={labels.savePdf} variant="secondary" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                          
-                                          <Button 
-                                              label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
-                                              variant="secondary" 
-                                              colorMode={settings.colorMode} 
-                                              onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
-                                              icon={viewMode === 'original' ? <FileText className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />} 
-                                              className="justify-start px-4 py-4 text-lg" 
-                                          />
-                                          
-                                          <Button 
-                                              label={isDarkMode ? labels.lightMode : labels.nightMode}
-                                              variant="secondary" 
-                                              colorMode={settings.colorMode} 
-                                              onClick={toggleNightMode} 
-                                              icon={isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />} 
-                                              className="justify-start px-4 py-4 text-lg" 
-                                          />
-                                          
-                                          <Button label={labels.bookmarks} variant="secondary" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
                       </div>
                     );
                 }
@@ -723,7 +632,15 @@ export default function App() {
             case Tab.PINEX:
                 return (
                   <Suspense fallback={<TabLoader />}>
-                    <PineX pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} settings={settings} isEmbedded={true} onControlAction={handlePineXControl} messages={pineXMessages} onUpdateMessages={setPineXMessages} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />
+                    <PineX 
+                      pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} 
+                      settings={settings} 
+                      isEmbedded={true} 
+                      onControlAction={handlePineXControl} 
+                      messages={pineXMessages} 
+                      onUpdateMessages={setPineXMessages} 
+                      onClose={() => setActiveTab(Tab.DOCUMENTS)} 
+                    />
                   </Suspense>
                 );
             case Tab.BOOKMARKS:
@@ -773,10 +690,55 @@ export default function App() {
         {announcement}
       </div>
 
-      <div className={clsx("flex-1 flex flex-col relative overflow-hidden", !isReadingMode && "pb-[80px]")}>
+      <div className={clsx("flex-1 flex flex-col relative overflow-hidden", isDocOpen && !audioModeActive && activeTab !== Tab.PINEX && "pb-[80px]")}>
           {renderContent()}
       </div>
-      {!isReadingMode && !showOnboarding && <BottomNav currentTab={activeTab} onTabChange={setActiveTab} colorMode={settings.colorMode} />}
+
+      {/* CONDITIONAL BOTTOM CONTROLS */}
+      
+      {/* 1. Audio Player (When TTS Active) */}
+      {isDocOpen && audioModeActive && (
+          <AudioControls
+              isPlaying={isPlayingAudio} 
+              onTogglePlay={togglePlayPause} 
+              onRewind={handleRewind}
+              onForward={handleForward}
+              onPrevPage={() => changePage(-1)}
+              onNextPage={() => changePage(1)}
+              canPrevPage={!!currentDoc && currentPageIndex > 0}
+              canNextPage={!!currentDoc && currentPageIndex < currentDoc.pages.length - 1}
+              settings={settings}
+              onStop={handleExitAudioMode}
+          />
+      )}
+
+      {/* 2. Document Navigation (When Doc Open, TTS Inactive) */}
+      {isDocOpen && !audioModeActive && activeTab !== Tab.PINEX && (
+          <DocumentControls
+              settings={settings}
+              onPrevPage={() => changePage(-1)}
+              onNextPage={() => changePage(1)}
+              canPrevPage={!!currentDoc && currentPageIndex > 0}
+              canNextPage={!!currentDoc && currentPageIndex < currentDoc.pages.length - 1}
+              onAskPineX={() => setActiveTab(Tab.PINEX)}
+              onMoreOptions={() => setShowMoreOptions(true)}
+          />
+      )}
+      
+      {/* 3. Main Nav (Default for other tabs) */}
+      {!isDocOpen && !showOnboarding && activeTab !== Tab.PINEX && <BottomNav currentTab={activeTab} onTabChange={setActiveTab} colorMode={settings.colorMode} />}
+    
+      {/* More Options Modal */}
+      <MoreOptionsModal
+          isOpen={showMoreOptions}
+          onClose={() => setShowMoreOptions(false)}
+          settings={settings}
+          onStartReadAloud={handleReadPageButton}
+          onOpenSettings={() => { setActiveTab(Tab.SETTINGS); setShowMoreOptions(false); }}
+          onSaveBookmark={() => { if(currentDoc) saveBookmark({ id: Date.now().toString(), fileId: currentDoc.metadata.name, fileName: currentDoc.metadata.name, text: `Page ${currentPageIndex + 1}`, type: 'TEXT', pageNumber: currentPageIndex + 1, timestamp: Date.now() }); }}
+          onShare={handleShare}
+          onSaveAsPdf={handleSaveAsPDF}
+      />
     </div>
   );
 }

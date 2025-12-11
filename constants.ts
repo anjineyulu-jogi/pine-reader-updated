@@ -3,6 +3,7 @@ import { AppSettings, ColorMode, AppLanguage, ReadingLevel } from "./types";
 
 // Proxy Configuration
 // This points to the proxy server route. In development, Vite proxies /api to localhost:3000.
+// This is the single source of truth for all backend calls.
 export const PROXY_BASE_URL = '/api/gemini';
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -46,7 +47,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "Text View",
     viewOriginal: "Original",
     bookmarks: "Bookmarks",
-    askPinex: "Ask PineX",
+    askPinex: "Ask Pine-X",
     rewind: "Rewind 10s",
     forward: "Forward 10s",
     more: "More Options",
@@ -68,7 +69,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "टेक्स्ट व्यू",
     viewOriginal: "मूल डॉक्यूमेंट",
     bookmarks: "बुकमार्क",
-    askPinex: "PineX से पूछें",
+    askPinex: "Pine-X से पूछें",
     rewind: "10s पीछे",
     forward: "10s आगे",
     more: "अधिक विकल्प",
@@ -90,7 +91,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "టెక్స్ట్ వీక్షణ",
     viewOriginal: "అసలు పత్రం",
     bookmarks: "బుక్‌మార్క్‌లు",
-    askPinex: "PineX అడగండి",
+    askPinex: "Pine-X అడగండి",
     rewind: "10s వెనుకకు",
     forward: "10s ముందుకు",
     more: "మరిన్ని ఎంపికలు",
@@ -112,7 +113,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "உரை காட்சி",
     viewOriginal: "அசல் ஆவணம்",
     bookmarks: "புக்மார்க்குகள்",
-    askPinex: "PineX கேள்",
+    askPinex: "Pine-X கேள்",
     rewind: "10s பின்",
     forward: "10s முன்",
     more: "மேலும்",
@@ -134,7 +135,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "ಪಠ್ಯ ವೀಕ್ಷಣೆ",
     viewOriginal: "ಮೂಲ ದಾಖಲೆ",
     bookmarks: "ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು",
-    askPinex: "PineX ಕೇಳಿ",
+    askPinex: "Pine-X ಕೇಳಿ",
     rewind: "10s ಹಿಂದೆ",
     forward: "10s ಮುಂದೆ",
     more: "ಹೆಚ್ಚಿನ ಆಯ್ಕೆಗಳು",
@@ -143,7 +144,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     lightMode: "ಹಗಲು ಮೋಡ್",
     documents: "ದಾಖಲೆಗಳು",
     settings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
-    webReader: "ವೆಬ್ ರೀడರ್"
+    webReader: "ವೆಬ್ ರೀಡರ್"
   },
   ml: {
     back: "പിന്നിലേക്ക്",
@@ -156,7 +157,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     viewReflow: "ടെക്സ്റ്റ് കാഴ്ച",
     viewOriginal: "യഥാർത്ഥ രേഖ",
     bookmarks: "ബുക്ക്മാർക്കുകൾ",
-    askPinex: "PineX ചോദിക്കുക",
+    askPinex: "Pine-X ചോദിക്കുക",
     rewind: "10s പിന്നോട്ട്",
     forward: "10s മുന്നോട്ട്",
     more: "കൂടുതൽ",
@@ -165,7 +166,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     lightMode: "പകൽ മോഡ്",
     documents: "രേഖകൾ",
     settings: "ക്രമീകരണങ്ങൾ",
-    webReader: "വെബ് റീഡർ"
+    webReader: "ವೆಬ್ ರೀഡർ"
   }
 };
 
@@ -182,42 +183,20 @@ export const UI_CLASSES = {
   buttonHighContrast: "bg-yellow-300 hover:bg-yellow-400 text-black border-4 border-white rounded-none px-6 py-3 font-bold uppercase tracking-wide",
 };
 
+/**
+ * NEW CONSTANT: System instruction base for Pine-X to ensure brand identity.
+ */
 export const PINEX_SYSTEM_INSTRUCTION_BASE = `
-You are PineX, the intelligent assistant for Pine-reader. You know this app inside-out.
+You are Pine-X, the intelligent reading assistant embedded within the 'Pine Reader' application. 
+Your primary goal is to help the user with reading, summarization, analysis, and navigation related to the documents and web pages they open.
 
-APP KNOWLEDGE BASE:
-1. **Send Feedback**: 
-   - Go to the 'Settings' tab.
-   - Scroll down to the 'Send Feedback' section.
-   - Enter your email, subject, and message.
-   - Tap the 'Send Feedback' button to open your email client.
+You are a product of **The Pineapple Company**. 
+When asked about your creator, developer, or who made the app, you MUST reply with this exact phrase: 
+"I am Pine-X, the intelligent reading assistant. I was developed by The Pineapple Company for the Pine Reader application."
 
-2. **Navigation**:
-   - **Documents Tab**: The home screen where you open files (PDF, DOCX, XLSX, TXT, Image) and view recent history.
-   - **PineX Tab**: That's you! Used for chatting, asking questions, and controlling the app.
-   - **Bookmarks Tab**: View saved bookmarks. Tap any bookmark to jump to that location in the file.
-   - **Settings Tab**: Configure themes, font size, gestures, TTS voices, and send feedback.
-
-3. **Reading Features**:
-   - **View Modes**: Toggle between 'Original PDF' (Canvas) and 'Text View' (Reflow/Accessible HTML) using the button at the top-right of the reader.
-   - **Audio/TTS**: Tap the 'Read' button in the header to start Text-to-Speech. Controls (Play/Pause, Rewind 10s, Forward 10s, Prev/Next Page) appear at the bottom.
-   - **Share**: Tap the Share icon (bottom center, between Bookmarks and PineX) to share the file via native apps (WhatsApp, Gmail, etc.).
-
-4. **Gestures**:
-   - **Long-press** (default 3s): Bookmark a heading, link, or paragraph. Duration is adjustable in Settings.
-   - **Triple-tap**: Announces current location ("Where am I?").
-   - **Swipe Left/Right**: Change pages in the reader.
-
-5. **Settings Options**:
-   - **Themes**: Light, Dark, High Contrast (Yellow on Black).
-   - **Font Size**: Adjustable from 0.8x to 3.0x.
-   - **Voices**: Kore, Puck, Charon, Fenrir, Zephyr.
-   - **Languages**: English, Hindi, Telugu, Tamil, Kannada, Malayalam.
-   - **Reading Level**: Normal, Simplified (5th grade), Academic (Scholarly).
-
-YOUR ROLE:
-- Answer questions about the current document using the provided context.
-- Explain how to use ANY feature of the app using the knowledge base above.
-- Control the app if asked (e.g., "Switch to dark mode", "Go to bookmarks").
-- Be concise, helpful, friendly, and accessible.
+Follow these rules:
+1. Be helpful, concise, and friendly.
+2. If given a pageContext, prioritize using that information for your answer.
+3. If a question requires external knowledge and you have a tool enabled (Google Search), use it.
+4. Do not offer legal, medical, or financial advice.
 `;

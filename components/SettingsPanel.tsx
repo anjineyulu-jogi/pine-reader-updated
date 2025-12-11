@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles, Languages, BookOpen, GraduationCap, Coffee } from 'lucide-react';
+import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles, Languages, BookOpen, GraduationCap, Coffee, Users, Globe } from 'lucide-react';
 import { AppSettings, ColorMode, ReadingLevel } from '../types';
 import { Button } from './ui/Button';
 import { AVAILABLE_VOICES, SUPPORTED_LANGUAGES } from '../constants';
@@ -268,6 +268,45 @@ Sent via Pine-reader App`
            </form>
       </section>
 
+      {/* Contact Us Section */}
+      <section className={clsx(sectionClass, 
+        settings.colorMode === ColorMode.HIGH_CONTRAST 
+          ? "border-yellow-300 bg-yellow-900/10" 
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+      )}>
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Users className="w-6 h-6" /> Contact Us
+          </h2>
+
+          <div className="space-y-3">
+              <p className="font-semibold text-lg">The Pineapple Company</p>
+              
+              <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 opacity-70" />
+                  <a 
+                      href="mailto:hello.jogi@the-pineapple.net" 
+                      className={clsx("underline hover:opacity-90", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-blue-500")}
+                      aria-label="E-mail Us"
+                  >
+                      E-mail Us
+                  </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                  <Globe className="w-5 h-5 opacity-70" />
+                  <a 
+                      href="https://www.the-pineapple.net" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className={clsx("underline hover:opacity-90", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-blue-500")}
+                      aria-label="Visit Our Website"
+                  >
+                      Visit Our Website
+                  </a>
+              </div>
+          </div>
+      </section>
+
       {/* About Section */}
       <section className={clsx(sectionClass, sectionStyle)}>
            <div className="flex flex-col items-center text-center space-y-2 py-4">
@@ -290,14 +329,14 @@ Sent via Pine-reader App`
                     Read any PDF, DOCX, XLSX, or text file exactly like Adobe Acrobat Reader mobile, while TalkBack reads real headings, tables, links, and images perfectly.
                   </p>
                   <p>
-                    Powered by PineX — your personal assistant that reads the entire document and answers any question instantly.
+                    Powered by Pine-X — your personal assistant that reads the entire document and answers any question instantly.
                   </p>
               </div>
            </div>
 
            <div className="text-center space-y-1 py-2">
               <p className="font-medium">Made with ❤️ in India</p>
-              <p className="opacity-70 text-sm">Version 2.0.0</p>
+              <p className="opacity-70 text-sm">Version 2.3.0</p>
            </div>
 
            {/* Changelog */}
@@ -308,15 +347,13 @@ Sent via Pine-reader App`
                 : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
            )}>
               <summary className="font-bold flex items-center gap-2 list-none select-none">
-                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> Launch Features v2.0
+                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> What's New in v2.3
               </summary>
               <ul className="space-y-2 text-sm opacity-90 list-disc pl-4 mt-3">
-                 <li><strong>Save as PDF:</strong> Export clean, accessible PDFs.</li>
-                 <li><strong>Web Reader:</strong> Read any URL without clutter.</li>
-                 <li><strong>Voice Commands:</strong> Control the app with your voice.</li>
-                 <li><strong>Night Mode:</strong> Easy toggle in reader view.</li>
-                 <li><strong>Smart Sharing:</strong> Share bookmarks and text easily.</li>
-                 <li><strong>Adaptive Reading:</strong> Simplify text complexity on the fly.</li>
+                 <li><strong>Live Chat with Pine-X:</strong> Have real-time voice conversations with Pine-X about your documents.</li>
+                 <li><strong>Simplified Interface:</strong> Cleaner audio player with fewer buttons for easier navigation.</li>
+                 <li><strong>Audio Feedback:</strong> New sound effects confirm actions like web extraction and AI responses.</li>
+                 <li><strong>Enhanced Contact:</strong> Direct support options added to Settings.</li>
               </ul>
            </details>
       </section>

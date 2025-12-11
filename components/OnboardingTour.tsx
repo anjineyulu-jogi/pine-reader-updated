@@ -19,7 +19,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
     const steps = [
         {
             title: "Welcome to Pine Reader",
-            text: "The crown stays on. 🍍\n\nI am PineX, your intelligent reading assistant. I can read documents aloud, answer questions, and help you navigate.",
+            text: "The crown stays on. 🍍\n\nI am Pine-X, your intelligent reading assistant. I can read documents aloud, answer questions, and help you navigate.",
         },
         {
             title: "Accessible by Design",
