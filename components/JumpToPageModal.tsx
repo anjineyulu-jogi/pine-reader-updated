@@ -58,7 +58,7 @@ export const JumpToPageModal: React.FC<JumpToPageModalProps> = ({
     >
       <div 
         className={clsx(
-          "w-full max-w-sm rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 border-2",
+          "w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 border-2",
           isHighContrast 
             ? "bg-black border-yellow-300 text-yellow-300" 
             : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
@@ -66,20 +66,20 @@ export const JumpToPageModal: React.FC<JumpToPageModalProps> = ({
       >
         <div className="flex justify-between items-center mb-6">
           <h3 id="jump-title" className="text-xl font-bold flex items-center gap-2">
-            <Navigation className="w-6 h-6" /> Go to Page
+            <Navigation className="w-6 h-6 text-[#FFC107]" /> Go to Page
           </h3>
           <Button
             label="Close"
             variant="ghost"
             colorMode={settings.colorMode}
             onClick={onClose}
-            icon={<X className="w-5 h-5" />}
+            icon={<X className="w-6 h-6" />}
           />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="page-input" className="block text-sm font-medium mb-2 opacity-90">
+            <label htmlFor="page-input" className="block text-sm font-medium mb-2 opacity-90 text-center">
               Enter page number (1 - {totalPages})
             </label>
             <input
@@ -91,10 +91,10 @@ export const JumpToPageModal: React.FC<JumpToPageModalProps> = ({
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               className={clsx(
-                "w-full text-center text-3xl font-bold py-4 rounded-lg border-2 outline-none focus:ring-2",
+                "w-full text-center text-4xl font-extrabold py-4 rounded-xl border-2 outline-none focus:ring-4 transition-all-300",
                 isHighContrast
-                  ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500"
-                  : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500"
+                  ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500/50"
+                  : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-[#FFC107] focus:ring-[#FFC107]/20"
               )}
             />
           </div>
@@ -106,14 +106,17 @@ export const JumpToPageModal: React.FC<JumpToPageModalProps> = ({
               colorMode={settings.colorMode}
               onClick={onClose}
               type="button"
-              className="flex-1"
+              className="flex-1 py-4 text-lg rounded-xl"
             />
             <Button
               label="Go"
               variant="primary"
               colorMode={settings.colorMode}
               type="submit"
-              className="flex-1"
+              className={clsx(
+                  "flex-1 py-4 text-lg font-bold rounded-xl",
+                  !isHighContrast && "!bg-[#FFC107] hover:!bg-yellow-400 !text-black"
+              )}
             />
           </div>
         </form>

@@ -1,23 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2 } from 'lucide-react';
+
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { parsePDF, parseTextFile, parseDocx, parseExcel, getPDFProxy } from './services/pdfService';
-import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline } from './services/geminiService';
+import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline, summarizeSelection } from './services/geminiService';
 import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData, getPineXMessages, savePineXMessages } from './services/storageService';
 import { ParsedDocument, AppSettings, ColorMode, Tab, DocumentType, ChatMessage } from './types';
 import { DEFAULT_SETTINGS, THEME_CLASSES, UI_TRANSLATIONS, SUPPORTED_LANGUAGES } from './constants';
 import { Reader } from './components/Reader';
 import { Button } from './components/ui/Button';
-import { SettingsPanel } from './components/SettingsPanel';
-import { PineX } from './components/ChatBot';
 import { BottomNav } from './components/BottomNav';
 import { DocumentsView } from './components/DocumentsView';
 import { JumpToPageModal } from './components/JumpToPageModal';
-import { BookmarksView } from './components/BookmarksView';
-import { WebReaderView } from './components/WebReaderView';
 import { OutlineView } from './components/OutlineView';
+import { SummaryModal } from './components/SummaryModal';
 import { triggerHaptic } from './services/hapticService';
 import { OnboardingTour } from './components/OnboardingTour';
+
+// --- LAZY LOADED COMPONENTS ---
+const PineX = React.lazy(() => import('./components/ChatBot').then(module => ({ default: module.PineX })));
+const BookmarksView = React.lazy(() => import('./components/BookmarksView').then(module => ({ default: module.BookmarksView })));
+const SettingsPanel = React.lazy(() => import('./components/SettingsPanel').then(module => ({ default: module.SettingsPanel })));
+const WebReaderView = React.lazy(() => import('./components/WebReaderView').then(module => ({ default: module.WebReaderView })));
+
+// Fallback Loader for Suspense
+const TabLoader = () => (
+  <div className="flex flex-col items-center justify-center h-full w-full bg-inherit">
+    <Loader2 className="w-8 h-8 text-[#FFC107] animate-spin" />
+  </div>
+);
 
 export default function App() {
   const [currentDoc, setCurrentDoc] = useState<ParsedDocument | null>(null);
@@ -35,6 +46,11 @@ export default function App() {
   const [outline, setOutline] = useState<string[]>([]);
   const [showOutline, setShowOutline] = useState(false);
   const [jumpToText, setJumpToText] = useState<string | null>(null);
+
+  // Summarization State
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Dock State
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -95,6 +111,7 @@ export default function App() {
   // Chat Persistence: Load on Doc Open
   useEffect(() => {
     if (currentDoc) {
+        // Optimized: Only fetch if we switch to PineX tab or open doc
         getPineXMessages(currentDoc.metadata.name).then(msgs => {
             if (msgs && msgs.length > 0) {
                 setPineXMessages(msgs);
@@ -299,6 +316,9 @@ export default function App() {
     setShowMoreMenu(false);
     refreshRecentFiles();
     setActiveTab(Tab.DOCUMENTS);
+    // Reset selection state
+    setSelectedText(null);
+    setSummaryResult(null);
   };
 
   const handleShare = async () => {
@@ -337,6 +357,38 @@ export default function App() {
       }));
   };
 
+  // --- SUMMARIZATION LOGIC ---
+  const handleTextSelection = (text: string) => {
+    // Only update if it's different to avoid re-renders
+    if (text !== selectedText) {
+       setSelectedText(text || null);
+       // Hide summary if new text selected (optional, or keep it until closed)
+       if (!text) setSummaryResult(null);
+    }
+  };
+
+  const handleSummarize = async () => {
+      if (!selectedText) return;
+      triggerHaptic('medium');
+      setIsSummarizing(true);
+      // Open modal immediately in loading state
+      setSummaryResult(null); 
+      
+      try {
+          const summary = await summarizeSelection(selectedText);
+          setSummaryResult(summary);
+      } catch (e) {
+          setSummaryResult("Sorry, I couldn't summarize that selection. Please try again.");
+      } finally {
+          setIsSummarizing(false);
+      }
+  };
+
+  const handleCloseSummary = () => {
+      setSummaryResult(null);
+      setIsSummarizing(false);
+  };
+
   // --- AUDIO LOGIC ---
   const getAudioContext = () => {
       if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
@@ -357,7 +409,8 @@ export default function App() {
       let newPage = { ...page };
       if (!page.semanticHtml) {
           setIsProcessing(true);
-          newPage.semanticHtml = await transformTextToSemanticHtml(page.text);
+          // Pass readingLevel from settings
+          newPage.semanticHtml = await transformTextToSemanticHtml(page.text, settings.readingLevel);
           needsUpdate = true;
       }
       if (!newPage.speechText && newPage.semanticHtml) {
@@ -512,144 +565,204 @@ export default function App() {
       if (showOnboarding) {
           return <OnboardingTour settings={settings} onComplete={handleOnboardingComplete} />;
       }
-      switch (activeTab) {
-          case Tab.DOCUMENTS:
-              if (currentDoc) {
-                  return (
-                    <div className="flex flex-col h-full bg-black">
-                         {/* FINAL HEADER: Back, Title, Share (Fixed Top Bar) */}
-                         <header className={clsx(
-                            "px-4 py-3 shrink-0 flex items-center justify-between gap-4 z-20 shadow-md",
-                            isHighContrast ? "bg-black border-b border-yellow-300" : "bg-gray-900 border-b border-gray-800 text-white"
-                        )}>
-                            <Button label={labels.back} onClick={() => window.history.back()} colorMode={settings.colorMode} variant="ghost" icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
-                            <h1 className={clsx("text-base font-bold truncate flex-1 text-center", isHighContrast ? "text-yellow-300" : "text-white")}>{currentDoc.metadata.name}</h1>
-                            <Button label={labels.share} onClick={handleShare} colorMode={settings.colorMode} variant="ghost" icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
-                        </header>
+      
+      const content = (() => {
+        switch (activeTab) {
+            case Tab.DOCUMENTS:
+                if (currentDoc) {
+                    return (
+                      <div className="flex flex-col h-full bg-black">
+                           {/* FINAL HEADER: Back, Title, Share (Fixed Top Bar) */}
+                           <header className={clsx(
+                              "px-4 py-3 shrink-0 flex items-center justify-between gap-4 z-20 shadow-md",
+                              isHighContrast ? "bg-black border-b border-yellow-300" : "bg-gray-900 border-b border-gray-800 text-white"
+                          )}>
+                              <Button label={labels.back} onClick={() => window.history.back()} colorMode={settings.colorMode} variant="ghost" icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
+                              <h1 className={clsx("text-base font-bold truncate flex-1 text-center", isHighContrast ? "text-yellow-300" : "text-white")}>{currentDoc.metadata.name}</h1>
+                              <Button label={labels.share} onClick={handleShare} colorMode={settings.colorMode} variant="ghost" icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-white")} />} className="shrink-0 p-1" />
+                          </header>
 
-                        <main className="flex-1 relative overflow-hidden bg-white dark:bg-black">
-                             <Reader 
-                                  page={currentDoc.pages[currentPageIndex]}
-                                  pdfProxy={pdfProxy} 
-                                  settings={settings}
-                                  isProcessing={isProcessing}
-                                  onPageChange={changePage}
-                                  documentName={currentDoc.metadata.name}
-                                  onBookmark={(bm) => saveBookmark(bm)}
-                                  viewMode={viewMode}
-                                  onDoubleTap={handleExitAudioMode}
-                                  jumpToText={jumpToText} // Pass jump prop
-                              />
-                        </main>
-
-                        {/* FINAL BOTTOM DOCK */}
-                        <div className={clsx(
-                            "shrink-0 py-3 px-2 z-50",
-                            isHighContrast ? "bg-black border-t-2 border-yellow-300" : "bg-gray-900 border-t border-gray-800"
-                        )}>
-                            {audioModeActive ? (
-                                // AUDIO PLAYER DOCK
-                                <div className="flex items-center justify-between gap-2 max-w-lg mx-auto relative px-2">
-                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-6 h-6 text-[#FFC107]" />} />
-                                    <Button label={labels.rewind} variant="ghost" colorMode={settings.colorMode} onClick={handleRewind} icon={<SkipBack className="w-6 h-6 text-[#FFC107]" />} />
-                                    <Button 
-                                        label={isPlayingAudio ? labels.stop : labels.read} 
-                                        variant="ghost" 
-                                        colorMode={settings.colorMode} 
-                                        onClick={togglePlayPause} 
-                                        icon={isPlayingAudio ? <Pause className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" /> : <Play className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" />} 
-                                    />
-                                    <Button label={labels.forward} variant="ghost" colorMode={settings.colorMode} onClick={handleForward} icon={<SkipForward className="w-6 h-6 text-[#FFC107]" />} />
-                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-6 h-6 text-[#FFC107]" />} />
-                                    
-                                    {/* Close Audio Mode */}
-                                    <button 
-                                        onClick={handleExitAudioMode}
-                                        className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700 touch-target"
-                                        aria-label={labels.close}
-                                    >
-                                        <X className="w-6 h-6" />
-                                    </button>
-                                </div>
-                            ) : (
-                                // MAIN DOCK (4 Big Buttons)
-                                <div className="grid grid-cols-4 gap-4 h-16 items-center max-w-lg mx-auto">
-                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
-                                </div>
-                            )}
-                        </div>
-                        {audioGenerating && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg bg-black/80 text-[#FFC107] flex items-center gap-3 border border-[#FFC107]"><Loader2 className="w-5 h-5 animate-spin" /><span className="font-medium text-sm">Preparing voice...</span></div>}
-                        
-                        <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={currentDoc.metadata.pageCount} settings={settings} />
-                        <OutlineView isOpen={showOutline} onClose={() => setShowOutline(false)} outline={outline} onJumpToText={(text) => setJumpToText(text)} settings={settings} />
-
-                        {/* MORE MENU SHEET (Vertical Modal) */}
-                        {showMoreMenu && (
-                            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowMoreMenu(false)}>
-                                <div 
+                          <main className="flex-1 relative overflow-hidden bg-white dark:bg-black">
+                               <Reader 
+                                    page={currentDoc.pages[currentPageIndex]}
+                                    pdfProxy={pdfProxy} 
+                                    settings={settings}
+                                    isProcessing={isProcessing}
+                                    onPageChange={changePage}
+                                    documentName={currentDoc.metadata.name}
+                                    onBookmark={(bm) => saveBookmark(bm)}
+                                    viewMode={viewMode}
+                                    onDoubleTap={handleExitAudioMode}
+                                    jumpToText={jumpToText} // Pass jump prop
+                                    onTextSelection={handleTextSelection}
+                                />
+                          </main>
+                          
+                          {/* FLOATING SUMMARIZE BUTTON */}
+                          {selectedText && !summaryResult && !isSummarizing && (
+                             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[55] animate-in zoom-in-90 duration-300">
+                                 <Button 
+                                    label="Summarize Selection"
+                                    onClick={handleSummarize}
+                                    colorMode={settings.colorMode}
                                     className={clsx(
-                                        "w-full max-w-lg rounded-t-2xl p-4 animate-in slide-in-from-bottom-10 duration-300 border-t-2",
-                                        isHighContrast ? "bg-black border-yellow-300 text-yellow-300" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                                        "shadow-2xl !py-3 !px-6 text-lg font-bold rounded-full border-2",
+                                        isHighContrast ? "!bg-black !text-yellow-300 !border-yellow-300" : "!bg-[#FFC107] !text-black !border-white"
                                     )}
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    <div className="flex justify-between items-center mb-4 px-2">
-                                        <h3 className="text-xl font-bold">Options</h3>
-                                        <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6" />} />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Button label={labels.read} variant="secondary" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                        
-                                        {/* Outline Button */}
-                                        <Button label="Table of Contents" variant="secondary" colorMode={settings.colorMode} onClick={() => { setShowMoreMenu(false); setShowOutline(true); }} icon={<List className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                        
-                                        <Button label={labels.savePdf} variant="secondary" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                        
-                                        <Button 
-                                            label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
-                                            variant="secondary" 
-                                            colorMode={settings.colorMode} 
-                                            onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
-                                            icon={viewMode === 'original' ? <FileText className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />} 
-                                            className="justify-start px-4 py-4 text-lg" 
-                                        />
-                                        
-                                        <Button 
-                                            label={isDarkMode ? labels.lightMode : labels.nightMode}
-                                            variant="secondary" 
-                                            colorMode={settings.colorMode} 
-                                            onClick={toggleNightMode} 
-                                            icon={isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />} 
-                                            className="justify-start px-4 py-4 text-lg" 
-                                        />
-                                        
-                                        <Button label={labels.bookmarks} variant="secondary" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                  );
-              }
-              return <DocumentsView onFileUpload={(e) => { const f = e.target.files?.[0]; if(f) processFile(f); }} onResumeFile={async (id) => { const f = await getStoredFile(id); if(f) processFile(f); }} recentFiles={recentFiles} settings={settings} />;
-          case Tab.PINEX:
-              return <PineX pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} settings={settings} isEmbedded={true} onControlAction={handlePineXControl} messages={pineXMessages} onUpdateMessages={setPineXMessages} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
-          case Tab.BOOKMARKS:
-              return <BookmarksView settings={settings} onOpenBookmark={(id, page) => { if(currentDoc && currentDoc.metadata.name === id) { setCurrentPageIndex(page); setActiveTab(Tab.DOCUMENTS); } }} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />;
-          case Tab.SETTINGS:
-              return <SettingsPanel settings={settings} onUpdateSettings={setSettings} />;
-          case Tab.WEB_READER:
-              return <WebReaderView settings={settings} onReadUrl={handleWebUrl} />;
-          default:
-              return null;
-      }
+                                    icon={<Sparkles className="w-5 h-5 mr-1" />}
+                                 >
+                                     Summarize
+                                 </Button>
+                             </div>
+                          )}
+
+                          {/* FINAL BOTTOM DOCK WITH SLIDE TRANSITION */}
+                          <div className={clsx(
+                              "shrink-0 py-3 px-2 z-50 overflow-hidden transition-all duration-300",
+                              isHighContrast ? "bg-black border-t-2 border-yellow-300" : "bg-gray-900 border-t border-gray-800"
+                          )}>
+                              <div className={clsx("w-full transition-transform duration-300 ease-out", audioModeActive ? "-translate-y-full absolute opacity-0 pointer-events-none" : "translate-y-0 opacity-100")}>
+                                   {/* MAIN DOCK (4 Big Buttons) */}
+                                  <div className="grid grid-cols-4 gap-4 h-16 items-center max-w-lg mx-auto">
+                                      <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                      <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                      <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                      <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                  </div>
+                              </div>
+                              
+                              <div className={clsx("w-full transition-transform duration-300 ease-out", audioModeActive ? "translate-y-0 opacity-100 relative" : "translate-y-full absolute opacity-0 pointer-events-none top-3")}>
+                                  {/* AUDIO PLAYER DOCK */}
+                                  <div className="flex items-center justify-between gap-2 max-w-lg mx-auto relative px-2">
+                                      <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-6 h-6 text-[#FFC107]" />} />
+                                      <Button label={labels.rewind} variant="ghost" colorMode={settings.colorMode} onClick={handleRewind} icon={<SkipBack className="w-6 h-6 text-[#FFC107]" />} />
+                                      <Button 
+                                          label={isPlayingAudio ? labels.stop : labels.read} 
+                                          variant="ghost" 
+                                          colorMode={settings.colorMode} 
+                                          onClick={togglePlayPause} 
+                                          icon={isPlayingAudio ? <Pause className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" /> : <Play className="w-8 h-8 text-[#FFC107] fill-[#FFC107]" />} 
+                                      />
+                                      <Button label={labels.forward} variant="ghost" colorMode={settings.colorMode} onClick={handleForward} icon={<SkipForward className="w-6 h-6 text-[#FFC107]" />} />
+                                      <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-6 h-6 text-[#FFC107]" />} />
+                                      
+                                      {/* Close Audio Mode */}
+                                      <button 
+                                          onClick={handleExitAudioMode}
+                                          className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700 touch-target transform transition-transform hover:scale-105 active:scale-95"
+                                          aria-label={labels.close}
+                                      >
+                                          <X className="w-6 h-6" />
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                          {audioGenerating && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg bg-black/80 text-[#FFC107] flex items-center gap-3 border border-[#FFC107] animate-in fade-in zoom-in-95"><Loader2 className="w-5 h-5 animate-spin" /><span className="font-medium text-sm">Preparing voice...</span></div>}
+                          
+                          <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={currentDoc.metadata.pageCount} settings={settings} />
+                          <OutlineView isOpen={showOutline} onClose={() => setShowOutline(false)} outline={outline} onJumpToText={(text) => setJumpToText(text)} settings={settings} />
+                          
+                          {/* NEW SUMMARY MODAL */}
+                          <SummaryModal 
+                             isOpen={!!summaryResult || isSummarizing} 
+                             onClose={handleCloseSummary} 
+                             summaryText={summaryResult} 
+                             isLoading={isSummarizing} 
+                             settings={settings}
+                          />
+
+                          {/* MORE MENU SHEET (Vertical Modal) */}
+                          {showMoreMenu && (
+                              <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowMoreMenu(false)}>
+                                  <div 
+                                      className={clsx(
+                                          "w-full max-w-lg rounded-t-2xl p-4 animate-in slide-in-from-bottom-10 duration-300 border-t-2",
+                                          isHighContrast ? "bg-black border-yellow-300 text-yellow-300" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                                      )}
+                                      onClick={e => e.stopPropagation()}
+                                  >
+                                      <div className="flex justify-between items-center mb-4 px-2">
+                                          <h3 className="text-xl font-bold">Options</h3>
+                                          <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6" />} />
+                                      </div>
+                                      <div className="flex flex-col gap-2">
+                                          <Button label={labels.read} variant="secondary" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                          
+                                          {/* Outline Button */}
+                                          <Button label="Table of Contents" variant="secondary" colorMode={settings.colorMode} onClick={() => { setShowMoreMenu(false); setShowOutline(true); }} icon={<List className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                          
+                                          <Button label={labels.savePdf} variant="secondary" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                          
+                                          <Button 
+                                              label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
+                                              variant="secondary" 
+                                              colorMode={settings.colorMode} 
+                                              onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
+                                              icon={viewMode === 'original' ? <FileText className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />} 
+                                              className="justify-start px-4 py-4 text-lg" 
+                                          />
+                                          
+                                          <Button 
+                                              label={isDarkMode ? labels.lightMode : labels.nightMode}
+                                              variant="secondary" 
+                                              colorMode={settings.colorMode} 
+                                              onClick={toggleNightMode} 
+                                              icon={isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />} 
+                                              className="justify-start px-4 py-4 text-lg" 
+                                          />
+                                          
+                                          <Button label={labels.bookmarks} variant="secondary" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                      </div>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                    );
+                }
+                return <DocumentsView onFileUpload={(e) => { const f = e.target.files?.[0]; if(f) processFile(f); }} onResumeFile={async (id) => { const f = await getStoredFile(id); if(f) processFile(f); }} recentFiles={recentFiles} settings={settings} />;
+            case Tab.PINEX:
+                return (
+                  <Suspense fallback={<TabLoader />}>
+                    <PineX pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} settings={settings} isEmbedded={true} onControlAction={handlePineXControl} messages={pineXMessages} onUpdateMessages={setPineXMessages} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />
+                  </Suspense>
+                );
+            case Tab.BOOKMARKS:
+                return (
+                  <Suspense fallback={<TabLoader />}>
+                    <BookmarksView settings={settings} onOpenBookmark={(id, page) => { if(currentDoc && currentDoc.metadata.name === id) { setCurrentPageIndex(page); setActiveTab(Tab.DOCUMENTS); } }} onBack={currentDoc ? () => setActiveTab(Tab.DOCUMENTS) : undefined} />
+                  </Suspense>
+                );
+            case Tab.SETTINGS:
+                return (
+                  <Suspense fallback={<TabLoader />}>
+                    <SettingsPanel settings={settings} onUpdateSettings={setSettings} />
+                  </Suspense>
+                );
+            case Tab.WEB_READER:
+                return (
+                  <Suspense fallback={<TabLoader />}>
+                    <WebReaderView settings={settings} onReadUrl={handleWebUrl} />
+                  </Suspense>
+                );
+            default:
+                return null;
+        }
+      })();
+
+      return (
+        <div key={activeTab} className="flex-1 h-full w-full slide-in-right overflow-hidden flex flex-col">
+            {content}
+        </div>
+      );
   };
 
   return (
-    <div className={clsx("h-[100dvh] flex flex-col font-sans transition-colors duration-200 overflow-hidden", THEME_CLASSES[settings.colorMode])}>
+    <div className={clsx("h-[100dvh] flex flex-col font-sans transition-colors duration-200 overflow-hidden", THEME_CLASSES[settings.colorMode])}
+        // Deselect text when tapping outside reader on mobile
+        onTouchStart={() => {
+           if (activeTab !== Tab.DOCUMENTS) setSelectedText(null);
+        }}
+    >
       {/* Hidden Aria Live Region for TalkBack announcements */}
       <div 
         className="sr-only" 

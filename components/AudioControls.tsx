@@ -15,6 +15,7 @@ interface AudioControlsProps {
   canPrevPage: boolean;
   canNextPage: boolean;
   settings: AppSettings;
+  isVisible?: boolean; // New prop for transition control
 }
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
@@ -27,16 +28,18 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   canPrevPage,
   canNextPage,
   settings,
+  isVisible = true,
 }) => {
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
 
   return (
     <div className={clsx(
-        "fixed left-0 right-0 flex justify-center z-30 pointer-events-none",
-        "bottom-6" // Lowered to float just above safe area since bottom nav is hidden
+        "fixed left-0 right-0 flex justify-center z-30 pointer-events-none transition-transform duration-300 ease-out",
+        "bottom-6",
+        isVisible ? "translate-y-0 opacity-100" : "translate-y-[150%] opacity-0"
     )}>
         <div className={clsx(
-            "flex items-center gap-2 px-6 py-3 rounded-full shadow-2xl pointer-events-auto border-2",
+            "flex items-center gap-2 px-6 py-3 rounded-full shadow-2xl pointer-events-auto border-2 transition-all-300",
             isHighContrast 
                 ? "bg-black border-yellow-300" 
                 : "bg-white dark:bg-gray-900 border-blue-500/20"
@@ -50,7 +53,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   onClick={onPrevPage}
                   disabled={!canPrevPage}
                   icon={<ChevronLeft className="w-6 h-6" />}
-                  className="rounded-full w-10 h-10 p-0"
+                  className="rounded-full w-10 h-10 p-0 transition-all-300"
               />
             </div>
 
@@ -64,7 +67,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   variant="ghost"
                   onClick={onRewind}
                   icon={<SkipBack className="w-6 h-6" />}
-                  className="rounded-full w-10 h-10 p-0"
+                  className="rounded-full w-10 h-10 p-0 transition-all-300"
               />
             </div>
             
@@ -79,7 +82,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   onClick={onTogglePlay}
                   icon={isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-1" />}
                   className={clsx(
-                      "rounded-full w-14 h-14 p-0 shadow-lg mx-2 flex items-center justify-center",
+                      "rounded-full w-14 h-14 p-0 shadow-lg mx-2 flex items-center justify-center transition-all-300 hover:scale-105 active:scale-95",
                       isPlaying ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
                   )}
               />
@@ -95,7 +98,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   variant="ghost"
                   onClick={onForward}
                   icon={<SkipForward className="w-6 h-6" />}
-                  className="rounded-full w-10 h-10 p-0"
+                  className="rounded-full w-10 h-10 p-0 transition-all-300"
               />
             </div>
 
@@ -110,7 +113,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   onClick={onNextPage}
                   disabled={!canNextPage}
                   icon={<ChevronRight className="w-6 h-6" />}
-                  className="rounded-full w-10 h-10 p-0"
+                  className="rounded-full w-10 h-10 p-0 transition-all-300"
               />
             </div>
         </div>

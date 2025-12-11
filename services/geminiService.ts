@@ -1,37 +1,25 @@
 
-import { AppSettings, Chat, ChatMessage, PineXOptions } from '../types';
-import { PINEX_SYSTEM_INSTRUCTION_BASE } from "../constants";
+import { AppSettings, Chat, ChatMessage, PineXOptions, ReadingLevel } from '../types';
+import { PROXY_BASE_URL } from '../constants';
 
-// CONFIGURATION:
-// Safely access VITE_API_URL to prevent runtime errors if import.meta.env is undefined
-const getEnvUrl = () => {
-  try {
-    // @ts-ignore
-    return (import.meta as any).env?.VITE_API_URL;
-  } catch {
-    return undefined;
-  }
-};
-
-const ENV_URL = getEnvUrl();
-const BASE_URL = ENV_URL ? ENV_URL.replace(/\/$/, '') : '/api';
-const PROXY_BASE_URL = `${BASE_URL}/gemini`;
-
-// Helper for making requests
-async function postToProxy(endpoint: string, body: any) {
+// Core function to handle communication with the backend proxy
+const fetchFromProxy = async (endpoint: string, data: object): Promise<any> => {
   try {
     const fullUrl = `${PROXY_BASE_URL}${endpoint}`;
-    // console.log("Making request to:", fullUrl); // Debugging
-
+    
     const response = await fetch(fullUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Backend Error (${response.status}): ${errText}`);
+      // Attempt to parse error message from JSON, fallback to status text
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || errorData.message || response.statusText;
+      throw new Error(`Proxy Error (${response.status}): ${errorMessage}`);
     }
 
     return await response.json();
@@ -39,30 +27,30 @@ async function postToProxy(endpoint: string, body: any) {
     console.error(`Gemini Service Error [${endpoint}]:`, error);
     throw error;
   }
-}
+};
 
 /**
  * transformTextToSemanticHtml
  * Delegates to backend to protect prompts and keys.
  */
-export const transformTextToSemanticHtml = async (text: string): Promise<string> => {
+export const transformTextToSemanticHtml = async (text: string, readingLevel: ReadingLevel = ReadingLevel.NORMAL): Promise<string> => {
   try {
-    const data = await postToProxy('/html-convert', { text });
+    const data = await fetchFromProxy('/html-convert', { text, readingLevel });
     return data.html || '';
   } catch (error) {
-    // Fallback if proxy fails
+    console.error("HTML conversion failed:", error);
+    // Fallback if proxy fails: return wrapped text
     return text.split('\n').map(line => `<p>${line}</p>`).join('');
   }
 };
 
 /**
- * Calls the proxy to generate a document outline (list of headings/sections).
- * The proxy must use Gemini to process the text and return a string array.
+ * generateDocumentOutline
+ * Calls the proxy to generate a document outline (list of headings).
  */
 export const generateDocumentOutline = async (text: string): Promise<string[]> => {
     try {
-        const data = await postToProxy('/outline-generate', { text });
-        // Ensure we always return an array
+        const data = await fetchFromProxy('/outline-generate', { text });
         return Array.isArray(data.outline) ? data.outline : [];
     } catch (error) {
         console.error("Outline generation failed:", error);
@@ -71,6 +59,21 @@ export const generateDocumentOutline = async (text: string): Promise<string[]> =
 };
 
 /**
+ * summarizeSelection
+ * Calls the proxy to summarize a block of selected text.
+ */
+export const summarizeSelection = async (text: string): Promise<string> => {
+    try {
+        const data = await fetchFromProxy('/summarize', { text });
+        return data.summary || "Could not generate summary.";
+    } catch (error) {
+        console.error("Summarize failed:", error);
+        throw new Error("Failed to summarize text. Please try again.");
+    }
+};
+
+/**
+ * optimizeTableForSpeech
  * Parses semantic HTML and optimizes it for Speech (TTS).
  * Kept client-side as it uses browser DOMParser and requires no API key.
  */
@@ -121,6 +124,7 @@ export const optimizeTableForSpeech = (html: string): string => {
 };
 
 /**
+ * createChatSession
  * Creates a Chat Session that proxies messages to the backend.
  * Manages history locally to mimic the SDK's stateful Chat object.
  */
@@ -136,15 +140,16 @@ export const createChatSession = (options: PineXOptions): Chat => {
             internalHistory.push({ role: 'user', parts: [{ text: userMsg }] });
 
             // 2. Send to Proxy
+            // The proxy endpoint /chat is stateless, so we must send context and history every time.
             const payload = {
                 message: userMsg,
                 history: internalHistory,
-                context: options.context, // Document content
+                context: options.context, 
                 enableSearch: options.enableSearch,
                 enableThinking: options.enableThinking
             };
 
-            const data = await postToProxy('/chat', payload);
+            const data = await fetchFromProxy('/chat', payload);
 
             // 3. Process Response
             const modelResponseText = data.text;
@@ -164,9 +169,13 @@ export const createChatSession = (options: PineXOptions): Chat => {
     };
 };
 
+/**
+ * generateSpeech
+ * Sends text to the proxy to generate speech audio bytes.
+ */
 export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string | undefined> => {
     try {
-        const data = await postToProxy('/speech', { text, voiceName });
+        const data = await fetchFromProxy('/speech', { text, voiceName });
         return data.audioData; // Base64 string
     } catch (error) {
         console.error("TTS generation failed:", error);
@@ -174,18 +183,27 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
     }
 };
 
+/**
+ * analyzeImage
+ * Sends base64 image to proxy for analysis and HTML conversion.
+ */
 export const analyzeImage = async (base64Image: string, mimeType: string): Promise<string> => {
     try {
-        const data = await postToProxy('/image-analyze', { image: base64Image, mimeType });
+        const data = await fetchFromProxy('/image-analyze', { image: base64Image, mimeType });
         return data.html;
     } catch (error) {
-        return `<p>Error analyzing image.</p>`;
+        console.error("Image analysis failed:", error);
+        return `<p>Error analyzing image content.</p>`;
     }
 };
 
+/**
+ * fetchWebPageContent
+ * Sends URL to proxy for search grounding extraction.
+ */
 export const fetchWebPageContent = async (url: string, targetLanguage: string = 'English'): Promise<{title: string, html: string, text: string}> => {
     try {
-        const data = await postToProxy('/web-fetch', { url, targetLanguage });
+        const data = await fetchFromProxy('/web-fetch', { url, targetLanguage });
         return data;
     } catch (error) {
         console.error("Web fetch failed:", error);

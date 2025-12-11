@@ -174,7 +174,7 @@ export const PineX: React.FC<PineXProps> = ({
                    <button
                       onClick={() => setUseSearch(!useSearch)}
                       className={clsx(
-                          "p-2 rounded-lg transition-all",
+                          "p-2 rounded-lg transition-all-300",
                           useSearch 
                             ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
                             : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -187,7 +187,7 @@ export const PineX: React.FC<PineXProps> = ({
                    <button
                       onClick={() => setUseThinking(!useThinking)}
                       className={clsx(
-                          "p-2 rounded-lg transition-all",
+                          "p-2 rounded-lg transition-all-300",
                           useThinking 
                              ? "bg-white dark:bg-gray-700 shadow-sm text-purple-600 dark:text-purple-400"
                             : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -201,7 +201,7 @@ export const PineX: React.FC<PineXProps> = ({
                
                <button 
                   onClick={handleClearChat} 
-                  className={clsx("p-2 rounded-lg transition-all hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500")} 
+                  className={clsx("p-2 rounded-lg transition-all-300 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500")} 
                   aria-label="Clear Chat"
                >
                    <Trash2 className="w-5 h-5" />
@@ -216,27 +216,27 @@ export const PineX: React.FC<PineXProps> = ({
       </div>
 
       {/* CHAT AREA */}
-      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-6 pb-32", THEME_CLASSES[settings.colorMode])}>
+      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-6 pb-32 scroll-smooth", THEME_CLASSES[settings.colorMode])}>
         {messages.map((msg, i) => (
             <div key={i} className={clsx(
                 "w-full flex animate-in slide-in-from-bottom-2 duration-300",
                 msg.role === 'user' ? "justify-end" : "justify-start"
             )}>
                 {msg.role === 'model' && (
-                     <div className="shrink-0 mr-3 mt-1">
+                     <div className="shrink-0 mr-3 mt-auto mb-1">
                          <PineappleLogo className="w-8 h-8 drop-shadow-md" />
                      </div>
                 )}
                 
                 <div className={clsx(
-                    "max-w-[85%] p-4 text-[1.05rem] leading-relaxed flex flex-col gap-2 shadow-sm relative",
+                    "max-w-[85%] p-4 text-[1.05rem] leading-relaxed flex flex-col gap-2 shadow-sm relative transition-all-300",
                     msg.role === 'user' 
                         ? (isHighContrast 
                             ? "rounded-2xl rounded-tr-sm bg-yellow-300 text-black font-bold border-2 border-white" 
                             : "rounded-2xl rounded-tr-sm bg-[#FFC107] text-black shadow-md")
                         : (isHighContrast 
                             ? "rounded-2xl rounded-tl-sm bg-black text-yellow-300 border-2 border-yellow-300" 
-                            : "rounded-2xl rounded-tl-sm bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100")
+                            : "rounded-2xl rounded-tl-sm bg-yellow-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-black/5 dark:border-white/5")
                 )}>
                     <div className="whitespace-pre-wrap">{msg.text}</div>
                     
@@ -277,10 +277,10 @@ export const PineX: React.FC<PineXProps> = ({
 
       {/* INPUT AREA */}
       <form onSubmit={handleSend} className={clsx(
-          "absolute bottom-0 left-0 right-0 p-4 border-t z-30 backdrop-blur-xl transition-colors",
-          isHighContrast 
-            ? "border-yellow-300 bg-black" 
-            : "border-gray-200/50 dark:border-gray-800/50 bg-white/90 dark:bg-gray-900/90"
+          "absolute bottom-0 left-0 right-0 px-4 py-4 z-30 transition-colors safe-area-pb",
+           isHighContrast 
+            ? "border-t border-yellow-300 bg-black" 
+            : "border-t border-gray-200/50 dark:border-gray-800/50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl"
       )}>
           <div className="flex gap-3 max-w-4xl mx-auto items-end">
             <div className="flex-1 relative">
@@ -291,7 +291,7 @@ export const PineX: React.FC<PineXProps> = ({
                     placeholder="Ask PineX anything..."
                     aria-label="Message Input"
                     className={clsx(
-                        "w-full px-6 py-4 rounded-3xl focus:outline-none focus:ring-2 text-base shadow-sm transition-shadow",
+                        "w-full px-6 py-4 rounded-3xl focus:outline-none focus:ring-2 text-base shadow-sm transition-all-300",
                         isHighContrast 
                             ? "bg-black border-2 border-yellow-300 text-yellow-300 placeholder-yellow-700 focus:ring-yellow-400"
                             : "bg-gray-100 dark:bg-gray-800 border-transparent text-gray-900 dark:text-gray-100 focus:ring-[#FFC107] focus:bg-white dark:focus:bg-black placeholder-gray-500"
@@ -303,7 +303,7 @@ export const PineX: React.FC<PineXProps> = ({
                 label="Send" 
                 type="submit" 
                 icon={<Send className="w-6 h-6 text-black ml-0.5" />} 
-                className="w-14 h-14 rounded-full !bg-[#FFC107] hover:!bg-yellow-400 p-0 flex items-center justify-center shadow-lg active:scale-95 transition-all hover:scale-105" 
+                className="w-14 h-14 rounded-full !bg-[#FFC107] hover:!bg-yellow-400 p-0 flex items-center justify-center shadow-lg active:scale-95 transition-all-300 hover:scale-105" 
             />
           </div>
       </form>

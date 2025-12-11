@@ -1,5 +1,9 @@
 
-import { AppSettings, ColorMode, AppLanguage } from "./types";
+import { AppSettings, ColorMode, AppLanguage, ReadingLevel } from "./types";
+
+// Proxy Configuration
+// This points to the proxy server route. In development, Vite proxies /api to localhost:3000.
+export const PROXY_BASE_URL = '/api/gemini';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   fontSize: 1.2, 
@@ -9,7 +13,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   viewMode: 'accessible',
   voiceName: 'Kore', // Default voice
   longPressDuration: 3000, // 3 seconds default
-  language: 'en'
+  language: 'en',
+  readingLevel: ReadingLevel.NORMAL
 };
 
 export const AVAILABLE_VOICES = [
@@ -138,7 +143,7 @@ export const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     lightMode: "ಹಗಲು ಮೋಡ್",
     documents: "ದಾಖಲೆಗಳು",
     settings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
-    webReader: "ವೆಬ್ ರೀಡರ್"
+    webReader: "ವೆಬ್ ರೀడರ್"
   },
   ml: {
     back: "പിന്നിലേക്ക്",
@@ -208,6 +213,7 @@ APP KNOWLEDGE BASE:
    - **Font Size**: Adjustable from 0.8x to 3.0x.
    - **Voices**: Kore, Puck, Charon, Fenrir, Zephyr.
    - **Languages**: English, Hindi, Telugu, Tamil, Kannada, Malayalam.
+   - **Reading Level**: Normal, Simplified (5th grade), Academic (Scholarly).
 
 YOUR ROLE:
 - Answer questions about the current document using the provided context.

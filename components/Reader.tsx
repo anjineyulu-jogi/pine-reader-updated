@@ -16,7 +16,8 @@ export const Reader: React.FC<ReaderProps> = ({
   onBookmark,
   viewMode,
   onDoubleTap,
-  jumpToText
+  jumpToText,
+  onTextSelection
 }) => {
   const [scale, setScale] = React.useState(1.0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,6 +97,18 @@ export const Reader: React.FC<ReaderProps> = ({
       }
   }, [page, pdfProxy, scale, viewMode, settings.colorMode]);
 
+  // --- SELECTION LOGIC ---
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    // Only trigger if selection is significant (> 10 chars) and callback exists
+    if (selection && selection.toString().trim().length > 10 && onTextSelection) {
+        onTextSelection(selection.toString().trim());
+    } else if (onTextSelection) {
+        // Clear selection if user clicked away
+        onTextSelection("");
+    }
+  };
+
   // --- GESTURE LOGIC ---
 
   const announceStatus = (text: string, hapticType: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'none' = 'medium') => {
@@ -172,6 +185,10 @@ export const Reader: React.FC<ReaderProps> = ({
 
   const handleTouchEnd = (e: React.TouchEvent) => {
       clearTimeout(longPressTimerRef.current);
+      
+      // Handle Selection Check on Touch End
+      handleSelection();
+
       if (!touchStartRef.current || isLongPressActiveRef.current) return;
 
       const touch = e.changedTouches[0];
@@ -256,6 +273,7 @@ export const Reader: React.FC<ReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseUp={handleSelection} // Handle mouse selection
     >
       {isProcessing ? (
          <div className="flex flex-col items-center justify-center h-full gap-4">

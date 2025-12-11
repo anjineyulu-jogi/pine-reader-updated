@@ -38,6 +38,12 @@ export enum ColorMode {
   HIGH_CONTRAST = 'HIGH_CONTRAST'
 }
 
+export enum ReadingLevel {
+  NORMAL = 'normal',
+  SIMPLIFIED = 'simplified',
+  ACADEMIC = 'academic',
+}
+
 export type AppLanguage = 'en' | 'hi' | 'te' | 'ta' | 'kn' | 'ml';
 
 export interface AppSettings {
@@ -49,6 +55,7 @@ export interface AppSettings {
   voiceName: string; // New: TTS Voice Selection
   longPressDuration: number; // ms
   language: AppLanguage; // New: App Language
+  readingLevel: ReadingLevel; // New: Adaptive Text Simplification
 }
 
 // Navigation Types
@@ -109,5 +116,6 @@ export interface ReaderProps {
   onBookmark: (bm: Bookmark) => void;
   viewMode: 'original' | 'reflow'; // Controlled by parent
   onDoubleTap?: () => void;
-  jumpToText?: string | null; // New: For TOC Navigation
+  jumpToText?: string | null; // For TOC Navigation
+  onTextSelection?: (text: string) => void; // New: Text Selection Callback
 }

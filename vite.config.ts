@@ -8,7 +8,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    // SECURITY: Removed `define` block. API_KEY is no longer injected into the client.
     server: {
         // Optional proxy configuration for local development
         proxy: {

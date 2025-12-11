@@ -19,7 +19,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
 
   const getFileIcon = (fileName: string, type: string) => {
       const name = fileName.toLowerCase();
-      const iconClass = "w-8 h-8";
+      const iconClass = "w-7 h-7"; // Refined size
       if (name.endsWith('.pdf')) return <FileText className={clsx(iconClass, "text-red-600")} />;
       if (name.endsWith('.docx')) return <FileText className={clsx(iconClass, "text-blue-600")} />;
       if (name.endsWith('.xlsx') || name.endsWith('.xls')) return <FileSpreadsheet className={clsx(iconClass, "text-green-600")} />;
@@ -31,7 +31,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
       return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  // Filter Logic
   const filteredFiles = recentFiles.filter(file => 
       file.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -64,10 +63,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={clsx(
-                    "w-full pl-12 pr-4 py-3 rounded-xl border outline-none transition-all font-medium",
+                    "w-full pl-12 pr-4 py-3 rounded-xl border outline-none transition-all-300 font-medium",
                     isHighContrast 
                         ? "bg-black border-yellow-300 text-yellow-300 placeholder-yellow-700 focus:ring-2 focus:ring-yellow-500" 
-                        : "bg-gray-100 dark:bg-gray-800 border-transparent focus:bg-white dark:focus:bg-black focus:border-[#FFC107] text-gray-900 dark:text-white"
+                        : "bg-gray-100 dark:bg-gray-800 border-transparent focus:bg-white dark:focus:bg-black focus:border-[#FFC107] text-gray-900 dark:text-white focus:shadow-md"
                 )}
             />
         </div>
@@ -75,7 +74,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
 
       <div className="p-6 space-y-8 max-w-2xl mx-auto w-full">
         
-        {/* Large Upload Button */}
+        {/* Large Upload Card */}
         <div className="relative group">
             <input 
                 type="file" 
@@ -86,20 +85,20 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
                 aria-label="Upload a document to read"
             />
             <div className={clsx(
-                "p-6 rounded-2xl border-2 border-dashed flex items-center gap-6 transition-all transform group-active:scale-[0.98]",
+                "p-6 rounded-2xl border-2 border-dashed flex items-center gap-6 transition-all-300 transform group-active:scale-[0.98]",
                 isHighContrast 
                     ? "border-yellow-300 bg-black text-yellow-300 hover:bg-yellow-900/20" 
-                    : "border-blue-400/50 bg-blue-50 dark:bg-blue-900/10 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                    : "border-[#FFC107]/50 bg-[#FFC107]/5 text-gray-800 dark:text-gray-100 hover:bg-[#FFC107]/10 hover:shadow-lg hover:border-[#FFC107] hover:scale-[1.01]"
             )}>
                 <div className={clsx(
-                    "p-4 rounded-full shrink-0", 
-                    isHighContrast ? "bg-yellow-300 text-black" : "bg-white dark:bg-blue-800 text-blue-600 dark:text-blue-200 shadow-sm"
+                    "p-4 rounded-full shrink-0 shadow-sm", 
+                    isHighContrast ? "bg-yellow-300 text-black" : "bg-white dark:bg-gray-800 text-[#FFC107]"
                 )}>
                     <Upload className="w-8 h-8" />
                 </div>
                 <div>
                     <h3 className="text-xl font-bold">Open New File</h3>
-                    <p className="opacity-80 mt-1">PDF, Word, Excel, Text, Image</p>
+                    <p className="opacity-80 mt-1 font-medium">PDF, Word, Excel, Text, Image</p>
                 </div>
             </div>
         </div>
@@ -123,16 +122,16 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
                                 key={file.id}
                                 onClick={() => onResumeFile(file.id)}
                                 className={clsx(
-                                    "w-full text-left p-5 rounded-2xl flex items-center gap-4 transition-all shadow-sm active:scale-[0.98] border",
+                                    "w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all-300 shadow-sm active:scale-[0.98] border group relative overflow-hidden",
                                     isHighContrast 
-                                        ? "bg-black border-white text-yellow-300 hover:bg-yellow-900/30" 
-                                        : "bg-white dark:bg-[#1e1e1e] border-gray-100 dark:border-gray-800 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800"
+                                        ? "bg-black border-white text-yellow-300 hover:bg-yellow-900/30 hover:border-yellow-300" 
+                                        : "bg-white dark:bg-[#151515] border-gray-100 dark:border-gray-800 hover:shadow-md hover:border-[#FFC107]/50 dark:hover:border-[#FFC107]/50 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
                                 )}
                                 aria-label={`Open ${file.name}, last opened ${formatDate(file.lastOpened)}`}
                             >
                                 <div className={clsx(
-                                    "shrink-0 p-3 rounded-xl",
-                                    isHighContrast ? "bg-yellow-300/20" : "bg-gray-100 dark:bg-gray-800"
+                                    "shrink-0 p-3 rounded-xl transition-colors",
+                                    isHighContrast ? "bg-yellow-300/20" : "bg-gray-100 dark:bg-gray-800 group-hover:bg-white dark:group-hover:bg-black"
                                 )}>
                                     {getFileIcon(file.name, file.type)}
                                 </div>
@@ -152,7 +151,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ onFileUpload, onRe
                                     </p>
                                 </div>
 
-                                <ChevronRight className={clsx("w-6 h-6 opacity-50", isHighContrast ? "text-yellow-300" : "text-gray-400")} />
+                                <ChevronRight className={clsx("w-6 h-6 opacity-50 transition-transform group-hover:translate-x-1", isHighContrast ? "text-yellow-300" : "text-gray-400")} />
                             </button>
                         ))}
                     </div>

@@ -86,13 +86,25 @@ const controlTools = [
 // 1. HTML Conversion (Reflow View)
 app.post('/api/gemini/html-convert', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, readingLevel } = req.body;
         if (!text) return res.status(400).json({ error: "No text provided" });
+
+        let systemInstruction = "You are an expert accessibility engine for blind users. Convert raw text into perfect, semantic HTML5. Detect headings (h1-h6), tables (table, th, tr, td), and lists. STRICTLY FOLLOW THESE RULES FOR TABLES: 1. Add role='grid' to the <table> tag. 2. Add aria-rowcount and aria-colcount attributes. 3. Add scope='col' to <th>. 4. Add scope='row' to first <td>.";
+
+        // Adaptive Reading Level Logic
+        if (readingLevel === 'simplified') {
+            systemInstruction = "The user has requested the content be rewritten using a 5th-grade reading level. Simplify complex vocabulary, shorten sentences, and maintain only the core concepts, but strictly adhere to the semantic HTML output rules. " + systemInstruction;
+        } else if (readingLevel === 'academic') {
+            systemInstruction = "The user has requested a scholarly, formal reading level. Ensure all language is precise, dense with information, and uses advanced vocabulary. Strictly adhere to the semantic HTML output rules. " + systemInstruction;
+        } else {
+            // Normal
+             systemInstruction += " Preserve original language. Do not summarize.";
+        }
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             config: {
-                systemInstruction: "You are an expert accessibility engine for blind users. Convert raw text into perfect, semantic HTML5. Detect headings (h1-h6), tables (table, th, tr, td), and lists. STRICTLY FOLLOW THESE RULES FOR TABLES: 1. Add role='grid' to the <table> tag. 2. Add aria-rowcount and aria-colcount attributes. 3. Add scope='col' to <th>. 4. Add scope='row' to first <td>. Preserve original language. Do not summarize.",
+                systemInstruction: systemInstruction,
                 temperature: 0.1,
             },
             contents: `RAW TEXT TO CONVERT:\n${text.substring(0, 15000)}`
@@ -245,6 +257,58 @@ app.post('/api/gemini/web-fetch', async (req, res) => {
 
     } catch (error) {
         console.error("Web Fetch Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 6. Outline Generation
+app.post('/api/gemini/outline-generate', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate a hierarchical Table of Contents (Outline) for this document text.
+            Return ONLY a JSON array of strings, where each string is a heading.
+            Example: ["1. Introduction", "2. Methodology", "2.1 Participants"]
+            
+            TEXT: ${text.substring(0, 30000)}`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        
+        let outline = [];
+        try {
+            outline = JSON.parse(response.text);
+        } catch (e) {
+            // Fallback parsing if JSON fails
+            outline = response.text.split('\n').filter(line => line.trim().length > 0);
+        }
+        res.json({ outline });
+    } catch (error) {
+        console.error("Outline Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 7. Text Summarization
+app.post('/api/gemini/summarize', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: "No text provided" });
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Summarize the following text concisely using bullet points. Focus on the main ideas and key takeaways.\n\nTEXT:\n${text.substring(0, 15000)}`,
+        });
+
+        res.json({ summary: response.text });
+    } catch (error) {
+        console.error("Summarize Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
