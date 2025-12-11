@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, MessageSquare, ArrowLeft, Volume2, StopCircle, Loader2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, Mic, X, Bot, MoreHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { parsePDF, parseTextFile, parseDocx, parseExcel, getPDFProxy } from './services/pdfService';
-import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent } from './services/geminiService';
-import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData } from './services/storageService';
-import { ParsedDocument, AppSettings, ColorMode, Tab, DocumentType, Bookmark, ChatMessage } from './types';
+import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline } from './services/geminiService';
+import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData, getPineXMessages, savePineXMessages } from './services/storageService';
+import { ParsedDocument, AppSettings, ColorMode, Tab, DocumentType, ChatMessage } from './types';
 import { DEFAULT_SETTINGS, THEME_CLASSES, UI_TRANSLATIONS, SUPPORTED_LANGUAGES } from './constants';
 import { Reader } from './components/Reader';
 import { Button } from './components/ui/Button';
@@ -16,11 +15,9 @@ import { DocumentsView } from './components/DocumentsView';
 import { JumpToPageModal } from './components/JumpToPageModal';
 import { BookmarksView } from './components/BookmarksView';
 import { WebReaderView } from './components/WebReaderView';
+import { OutlineView } from './components/OutlineView';
 import { triggerHaptic } from './services/hapticService';
-import { PineappleLogo } from './components/ui/PineappleLogo';
 import { OnboardingTour } from './components/OnboardingTour';
-
-const AUDIO_BUFFER_AHEAD = 2; 
 
 export default function App() {
   const [currentDoc, setCurrentDoc] = useState<ParsedDocument | null>(null);
@@ -33,6 +30,11 @@ export default function App() {
   const [recentFiles, setRecentFiles] = useState<StoredFileMetadata[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DOCUMENTS);
   const [showJumpModal, setShowJumpModal] = useState(false);
+
+  // Outline (TOC) State
+  const [outline, setOutline] = useState<string[]>([]);
+  const [showOutline, setShowOutline] = useState(false);
+  const [jumpToText, setJumpToText] = useState<string | null>(null);
 
   // Dock State
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -55,6 +57,9 @@ export default function App() {
   const audioStartTimeRef = useRef<number>(0);
   const audioStartOffsetRef = useRef<number>(0);
 
+  // Accessibility Announcer State
+  const [announcement, setAnnouncement] = useState("");
+
   // Onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -67,18 +72,12 @@ export default function App() {
   const labels = UI_TRANSLATIONS[settings.language || 'en'];
 
   useEffect(() => {
-      // Check first launch
       const hasSeenTour = localStorage.getItem('pine_onboarding_complete');
-      if (!hasSeenTour) {
-          setShowOnboarding(true);
-      }
+      if (!hasSeenTour) setShowOnboarding(true);
       refreshRecentFiles();
       
-      // Handle Hardware Back Button (Native Feel)
       const handlePopState = (event: PopStateEvent) => {
-          if (currentDoc) {
-              handleCloseDocument();
-          }
+          if (currentDoc) handleCloseDocument();
       };
 
       window.addEventListener('popstate', handlePopState);
@@ -93,26 +92,39 @@ export default function App() {
     }
   }, [settings.language]);
 
+  // Chat Persistence: Load on Doc Open
+  useEffect(() => {
+    if (currentDoc) {
+        getPineXMessages(currentDoc.metadata.name).then(msgs => {
+            if (msgs && msgs.length > 0) {
+                setPineXMessages(msgs);
+            } else {
+                setPineXMessages([{ role: 'model', text: "Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍" }]);
+            }
+        });
+    }
+  }, [currentDoc?.metadata.name]);
+
+  // Chat Persistence: Save on Update
+  useEffect(() => {
+      if (currentDoc && pineXMessages.length > 1) {
+          const timeout = setTimeout(() => {
+              savePineXMessages(currentDoc.metadata.name, pineXMessages);
+          }, 1000); // Debounce save
+          return () => clearTimeout(timeout);
+      }
+  }, [pineXMessages, currentDoc]);
+
   const handleOnboardingComplete = () => {
       localStorage.setItem('pine_onboarding_complete', 'true');
       setShowOnboarding(false);
   };
 
-  // Global 3-Finger Double Tap Gesture (Where Am I?)
-  const last3FingerTapRef = useRef(0);
-  useEffect(() => {
-      const handleGlobalTouch = (e: TouchEvent) => {
-          if (e.touches.length === 3) {
-              const now = Date.now();
-              if (now - last3FingerTapRef.current < 500) {
-                  handleWhereAmI();
-                  last3FingerTapRef.current = 0;
-              } else {
-                  last3FingerTapRef.current = now;
-              }
-          }
-      };
+  const handleGlobalTouch = (e: TouchEvent) => {
+      if (e.touches.length === 3) handleWhereAmI();
+  };
 
+  useEffect(() => {
       window.addEventListener('touchstart', handleGlobalTouch);
       return () => window.removeEventListener('touchstart', handleGlobalTouch);
   }, [currentDoc, currentPageIndex]);
@@ -123,10 +135,9 @@ export default function App() {
           const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
           recognitionRef.current = new SpeechRecognition();
           recognitionRef.current.continuous = false;
-          recognitionRef.current.lang = settings.language === 'en' ? 'en-US' : settings.language; // Basic lang support
+          recognitionRef.current.lang = settings.language === 'en' ? 'en-US' : settings.language;
           recognitionRef.current.onresult = (event: any) => {
               const transcript = event.results[0][0].transcript.toLowerCase();
-              console.log("Voice Command:", transcript);
               handleVoiceCommand(transcript);
               setIsListening(false);
           };
@@ -134,21 +145,6 @@ export default function App() {
           recognitionRef.current.onend = () => setIsListening(false);
       }
   }, [currentDoc, audioModeActive, settings]);
-
-  const toggleVoiceListener = () => {
-      if (!recognitionRef.current) {
-          alert("Voice commands not supported on this browser.");
-          return;
-      }
-      if (isListening) {
-          recognitionRef.current.stop();
-          setIsListening(false);
-      } else {
-          triggerHaptic('medium');
-          recognitionRef.current.start();
-          setIsListening(true);
-      }
-  };
 
   const handleVoiceCommand = (cmd: string) => {
       triggerHaptic('success');
@@ -172,6 +168,8 @@ export default function App() {
   };
 
   const announce = (text: string) => {
+      setAnnouncement(text);
+      setTimeout(() => setAnnouncement(""), 1000);
       triggerHaptic('heavy');
       const u = new SpeechSynthesisUtterance(text);
       window.speechSynthesis.cancel();
@@ -189,6 +187,7 @@ export default function App() {
     audioCacheRef.current.clear(); 
     setPdfProxy(null);
     setShowMoreMenu(false);
+    setOutline([]); // Clear outline
     
     try {
         let parsed: ParsedDocument;
@@ -235,6 +234,7 @@ export default function App() {
   const handleWebUrl = async (url: string) => {
       setIsProcessing(true);
       setShowMoreMenu(false);
+      setOutline([]);
       try {
           const langName = SUPPORTED_LANGUAGES.find(l => l.code === settings.language)?.name || 'English';
           const content = await fetchWebPageContent(url, langName);
@@ -259,21 +259,25 @@ export default function App() {
       }
   };
 
-  const loadDocumentIntoReader = (parsed: ParsedDocument) => {
+  const loadDocumentIntoReader = async (parsed: ParsedDocument) => {
       const { pageIndex } = getReadingProgress(parsed.metadata.name);
       const startPage = (pageIndex >= 0 && pageIndex < parsed.pages.length) ? pageIndex : 0;
       setCurrentDoc(parsed);
       setCurrentPageIndex(startPage);
-      const greeting = `Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍`;
-      setPineXMessages([{ role: 'model', text: greeting }]);
       setActiveTab(Tab.DOCUMENTS);
-      
-      // Push history state so back button works natively
       window.history.pushState({ view: 'reader' }, '');
 
       if (parsed.pages.length > 0 && parsed.metadata.type !== DocumentType.IMAGE) {
           enhancePage(parsed, startPage);
           setTimeout(() => prepareAudioForPage(parsed, startPage + 1), 2000);
+      }
+
+      // Generate Outline (Async)
+      if (parsed.rawText && parsed.rawText.length > 0) {
+          const textSample = parsed.rawText.substring(0, 50000); // Limit context for outline
+          generateDocumentOutline(textSample).then(toc => {
+             if (toc && toc.length > 0) setOutline(toc);
+          });
       }
   };
 
@@ -289,18 +293,17 @@ export default function App() {
     setCurrentDoc(null);
     setPdfProxy(null);
     setShowJumpModal(false);
+    setShowOutline(false);
     stopAudio();
     setAudioModeActive(false);
     setShowMoreMenu(false);
     refreshRecentFiles();
-    setPineXMessages([{ role: 'model', text: "Hi! I’m PineX. I’ve read your document. Ask me anything. 🍍" }]);
     setActiveTab(Tab.DOCUMENTS);
   };
 
   const handleShare = async () => {
       if (!currentDoc) return;
       try {
-          // Share extracted text for Web Pages
           if (currentDoc.metadata.type === DocumentType.WEB) {
              const shareData = {
                  title: currentDoc.metadata.name,
@@ -310,7 +313,6 @@ export default function App() {
              else { await navigator.clipboard.writeText(shareData.text); alert("Text copied!"); }
              return;
           }
-
           const file = await getStoredFile(currentDoc.metadata.name);
           if (file && navigator.share && navigator.canShare({ files: [file] })) {
               await navigator.share({ files: [file], title: currentDoc.metadata.name });
@@ -431,7 +433,6 @@ export default function App() {
                     setCurrentPageIndex(nextIdx); playAudioForPage(nextIdx);
                 } else setIsPlayingAudio(false);
              } else {
-                 // Stopped manually
                  setIsPlayingAudio(false);
              }
          }
@@ -485,6 +486,7 @@ export default function App() {
           stopAudio();
           setCurrentPageIndex(newIndex);
           saveReadingProgress(currentDoc.metadata.name, newIndex);
+          announce(`Page ${newIndex + 1}`); // Use Announcer
           if (currentDoc.metadata.type !== DocumentType.IMAGE) {
             enhancePage(currentDoc, newIndex);
             setTimeout(() => enhancePage(currentDoc, newIndex + 1), 1000);
@@ -536,6 +538,7 @@ export default function App() {
                                   onBookmark={(bm) => saveBookmark(bm)}
                                   viewMode={viewMode}
                                   onDoubleTap={handleExitAudioMode}
+                                  jumpToText={jumpToText} // Pass jump prop
                               />
                         </main>
 
@@ -562,48 +565,72 @@ export default function App() {
                                     {/* Close Audio Mode */}
                                     <button 
                                         onClick={handleExitAudioMode}
-                                        className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700"
+                                        className="absolute -top-12 right-0 p-2 bg-red-600 rounded-full shadow-lg text-white hover:bg-red-700 touch-target"
                                         aria-label={labels.close}
                                     >
-                                        <X className="w-5 h-5" />
+                                        <X className="w-6 h-6" />
                                     </button>
-                                </div>
-                            ) : showMoreMenu ? (
-                                // MORE MENU DOCK (6 Small Icons)
-                                <div className="grid grid-cols-6 gap-2 items-center justify-items-center max-w-xl mx-auto">
-                                    <Button label={labels.read} variant="ghost" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
-                                    <Button label={labels.savePdf} variant="ghost" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
-                                    <Button 
-                                        label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
-                                        variant="ghost" 
-                                        colorMode={settings.colorMode} 
-                                        onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
-                                        icon={viewMode === 'original' ? <FileText className="w-6 h-6 text-[#FFC107]" /> : <ImageIcon className="w-6 h-6 text-[#FFC107]" />} 
-                                        className="w-full flex-col text-[10px] p-1 gap-1" 
-                                    />
-                                    <Button 
-                                        label={isDarkMode ? labels.lightMode : labels.nightMode}
-                                        variant="ghost" 
-                                        colorMode={settings.colorMode} 
-                                        onClick={toggleNightMode} 
-                                        icon={isDarkMode ? <Sun className="w-6 h-6 text-[#FFC107]" /> : <Moon className="w-6 h-6 text-[#FFC107]" />} 
-                                        className="w-full flex-col text-[10px] p-1 gap-1" 
-                                    />
-                                    <Button label={labels.bookmarks} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6 text-[#FFC107]" />} className="w-full flex-col text-[10px] p-1 gap-1" />
-                                    <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6 text-white" />} className="w-full flex-col text-[10px] p-1 gap-1" />
                                 </div>
                             ) : (
                                 // MAIN DOCK (4 Big Buttons)
-                                <div className="grid grid-cols-4 gap-4 h-14 items-center max-w-lg mx-auto">
-                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
-                                    <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-8 h-8 text-[#FFC107]" />} className="h-full w-full" />
+                                <div className="grid grid-cols-4 gap-4 h-16 items-center max-w-lg mx-auto">
+                                    <Button label={labels.prevPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(-1)} disabled={currentPageIndex === 0} icon={<ChevronLeft className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.askPinex} variant="ghost" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.PINEX)} icon={<Bot className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.nextPage} variant="ghost" colorMode={settings.colorMode} onClick={() => changePage(1)} disabled={currentPageIndex === currentDoc.metadata.pageCount - 1} icon={<ChevronRight className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
+                                    <Button label={labels.more} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(true)} icon={<MoreHorizontal className="w-10 h-10 text-[#FFC107]" />} className="h-full w-full" />
                                 </div>
                             )}
                         </div>
                         {audioGenerating && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg bg-black/80 text-[#FFC107] flex items-center gap-3 border border-[#FFC107]"><Loader2 className="w-5 h-5 animate-spin" /><span className="font-medium text-sm">Preparing voice...</span></div>}
+                        
                         <JumpToPageModal isOpen={showJumpModal} onClose={() => setShowJumpModal(false)} onJump={(i) => changePage(i - currentPageIndex)} currentPage={currentPageIndex} totalPages={currentDoc.metadata.pageCount} settings={settings} />
+                        <OutlineView isOpen={showOutline} onClose={() => setShowOutline(false)} outline={outline} onJumpToText={(text) => setJumpToText(text)} settings={settings} />
+
+                        {/* MORE MENU SHEET (Vertical Modal) */}
+                        {showMoreMenu && (
+                            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowMoreMenu(false)}>
+                                <div 
+                                    className={clsx(
+                                        "w-full max-w-lg rounded-t-2xl p-4 animate-in slide-in-from-bottom-10 duration-300 border-t-2",
+                                        isHighContrast ? "bg-black border-yellow-300 text-yellow-300" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                                    )}
+                                    onClick={e => e.stopPropagation()}
+                                >
+                                    <div className="flex justify-between items-center mb-4 px-2">
+                                        <h3 className="text-xl font-bold">Options</h3>
+                                        <Button label={labels.close} variant="ghost" colorMode={settings.colorMode} onClick={() => setShowMoreMenu(false)} icon={<X className="w-6 h-6" />} />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <Button label={labels.read} variant="secondary" colorMode={settings.colorMode} onClick={handleReadPageButton} icon={<Volume2 className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                        
+                                        {/* Outline Button */}
+                                        <Button label="Table of Contents" variant="secondary" colorMode={settings.colorMode} onClick={() => { setShowMoreMenu(false); setShowOutline(true); }} icon={<List className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                        
+                                        <Button label={labels.savePdf} variant="secondary" colorMode={settings.colorMode} onClick={handleSaveAsPDF} icon={<Download className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                        
+                                        <Button 
+                                            label={viewMode === 'original' ? labels.viewReflow : labels.viewOriginal} 
+                                            variant="secondary" 
+                                            colorMode={settings.colorMode} 
+                                            onClick={() => setViewMode(v => v === 'original' ? 'reflow' : 'original')} 
+                                            icon={viewMode === 'original' ? <FileText className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />} 
+                                            className="justify-start px-4 py-4 text-lg" 
+                                        />
+                                        
+                                        <Button 
+                                            label={isDarkMode ? labels.lightMode : labels.nightMode}
+                                            variant="secondary" 
+                                            colorMode={settings.colorMode} 
+                                            onClick={toggleNightMode} 
+                                            icon={isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />} 
+                                            className="justify-start px-4 py-4 text-lg" 
+                                        />
+                                        
+                                        <Button label={labels.bookmarks} variant="secondary" colorMode={settings.colorMode} onClick={() => setActiveTab(Tab.BOOKMARKS)} icon={<BookmarkIcon className="w-6 h-6" />} className="justify-start px-4 py-4 text-lg" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                   );
               }
@@ -623,7 +650,17 @@ export default function App() {
 
   return (
     <div className={clsx("h-[100dvh] flex flex-col font-sans transition-colors duration-200 overflow-hidden", THEME_CLASSES[settings.colorMode])}>
-      <div className={clsx("flex-1 flex flex-col relative overflow-hidden", !isReadingMode && "pb-[60px]")}>
+      {/* Hidden Aria Live Region for TalkBack announcements */}
+      <div 
+        className="sr-only" 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true"
+      >
+        {announcement}
+      </div>
+
+      <div className={clsx("flex-1 flex flex-col relative overflow-hidden", !isReadingMode && "pb-[80px]")}>
           {renderContent()}
       </div>
       {!isReadingMode && !showOnboarding && <BottomNav currentTab={activeTab} onTabChange={setActiveTab} colorMode={settings.colorMode} />}

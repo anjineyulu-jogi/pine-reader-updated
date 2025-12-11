@@ -1,35 +1,78 @@
 
-import { GoogleGenAI, Chat, Modality, Content, FunctionDeclaration, Type } from "@google/genai";
+import { AppSettings, Chat, ChatMessage, PineXOptions } from '../types';
 import { PINEX_SYSTEM_INSTRUCTION_BASE } from "../constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// CONFIGURATION:
+// Safely access VITE_API_URL to prevent runtime errors if import.meta.env is undefined
+const getEnvUrl = () => {
+  try {
+    // @ts-ignore
+    return (import.meta as any).env?.VITE_API_URL;
+  } catch {
+    return undefined;
+  }
+};
+
+const ENV_URL = getEnvUrl();
+const BASE_URL = ENV_URL ? ENV_URL.replace(/\/$/, '') : '/api';
+const PROXY_BASE_URL = `${BASE_URL}/gemini`;
+
+// Helper for making requests
+async function postToProxy(endpoint: string, body: any) {
+  try {
+    const fullUrl = `${PROXY_BASE_URL}${endpoint}`;
+    // console.log("Making request to:", fullUrl); // Debugging
+
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Backend Error (${response.status}): ${errText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Gemini Service Error [${endpoint}]:`, error);
+    throw error;
+  }
+}
 
 /**
  * transformTextToSemanticHtml
+ * Delegates to backend to protect prompts and keys.
  */
 export const transformTextToSemanticHtml = async (text: string): Promise<string> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: "You are an expert accessibility engine for blind users. Convert raw text into perfect, semantic HTML5. Detect headings (h1-h6), tables (table, th, tr, td), and lists. STRICTLY FOLLOW THESE RULES FOR TABLES: 1. Add role='grid' to the <table> tag. 2. Add aria-rowcount and aria-colcount attributes to the <table> tag (estimate counts if needed). 3. Add scope='col' to <th> cells. 4. Add scope='row' to the first <td> cell in every <tr> of the <tbody>. Preserve the original language of the text. Do not summarize.",
-        temperature: 0.1,
-      },
-      contents: `RAW TEXT TO CONVERT:\n${text.substring(0, 15000)}` 
-    });
-
-    let html = response.text || '';
-    html = html.replace(/```html/g, '').replace(/```/g, '');
-    return html;
-
+    const data = await postToProxy('/html-convert', { text });
+    return data.html || '';
   } catch (error) {
-    console.error("Gemini HTML generation failed:", error);
+    // Fallback if proxy fails
     return text.split('\n').map(line => `<p>${line}</p>`).join('');
   }
 };
 
 /**
- * Parses semantic HTML and optimized it for Speech (TTS).
+ * Calls the proxy to generate a document outline (list of headings/sections).
+ * The proxy must use Gemini to process the text and return a string array.
+ */
+export const generateDocumentOutline = async (text: string): Promise<string[]> => {
+    try {
+        const data = await postToProxy('/outline-generate', { text });
+        // Ensure we always return an array
+        return Array.isArray(data.outline) ? data.outline : [];
+    } catch (error) {
+        console.error("Outline generation failed:", error);
+        return [];
+    }
+};
+
+/**
+ * Parses semantic HTML and optimizes it for Speech (TTS).
+ * Kept client-side as it uses browser DOMParser and requires no API key.
  */
 export const optimizeTableForSpeech = (html: string): string => {
     try {
@@ -37,11 +80,9 @@ export const optimizeTableForSpeech = (html: string): string => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         
-        // Safety check for body existence
         if (!doc || !doc.body) return html.replace(/<[^>]*>/g, ' ');
 
         const tables = doc.querySelectorAll('table');
-
         if (tables.length === 0) return doc.body.innerText || "";
 
         tables.forEach((table, index) => {
@@ -54,15 +95,12 @@ export const optimizeTableForSpeech = (html: string): string => {
             const rowCount = rows.length;
 
             let narrative = `\n[Table ${index + 1} starting with ${rowCount} rows and ${colCount} columns. `;
-            if (headers.length > 0) {
-                narrative += `Columns: ${headers.join(', ')}. `;
-            }
+            if (headers.length > 0) narrative += `Columns: ${headers.join(', ')}. `;
             narrative += "]\n";
 
             for (let i = 1; i < rows.length; i++) {
                 const cells = Array.from(rows[i].querySelectorAll('td, th'));
                 narrative += `Row ${i}: `;
-                
                 cells.forEach((cell, cellIndex) => {
                     const header = headers[cellIndex] ? `${headers[cellIndex]}: ` : '';
                     narrative += `${header}${cell.textContent?.trim() || 'Empty'}, `;
@@ -82,91 +120,54 @@ export const optimizeTableForSpeech = (html: string): string => {
     }
 };
 
-export interface PineXOptions {
-  enableSearch?: boolean;
-  enableThinking?: boolean;
-  context?: string;
-  history?: Content[];
-}
-
-const controlTools: FunctionDeclaration[] = [
-    {
-        name: "setTheme",
-        description: "Change the app's display theme/color mode.",
-        parameters: {
-            type: Type.OBJECT,
-            properties: {
-                mode: { type: Type.STRING, enum: ["LIGHT", "DARK", "HIGH_CONTRAST"] }
-            },
-            required: ["mode"]
-        }
-    },
-    {
-        name: "navigateApp",
-        description: "Navigate to a specific tab in the app.",
-        parameters: {
-            type: Type.OBJECT,
-            properties: {
-                destination: { type: Type.STRING, enum: ["DOCUMENTS", "PINEX", "BOOKMARKS", "SETTINGS", "WEB_READER"] }
-            },
-            required: ["destination"]
-        }
-    },
-    {
-        name: "setFontSize",
-        description: "Increase or decrease the text font size.",
-        parameters: {
-            type: Type.OBJECT,
-            properties: {
-                action: { type: Type.STRING, enum: ["increase", "decrease"] }
-            },
-            required: ["action"]
-        }
-    }
-];
-
+/**
+ * Creates a Chat Session that proxies messages to the backend.
+ * Manages history locally to mimic the SDK's stateful Chat object.
+ */
 export const createChatSession = (options: PineXOptions): Chat => {
-    let systemInstruction = PINEX_SYSTEM_INSTRUCTION_BASE;
-    if (options.context) {
-        systemInstruction += `\n\nCURRENT DOCUMENT CONTEXT:\n${options.context}`;
-    }
+    // Initialize history from options or empty
+    const internalHistory = options.history ? [...options.history] : [];
+    
+    return {
+        sendMessage: async (params: { message: string }) => {
+            const userMsg = params.message;
+            
+            // 1. Add User Message to History
+            internalHistory.push({ role: 'user', parts: [{ text: userMsg }] });
 
-    const config: any = {
-        systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: controlTools }]
+            // 2. Send to Proxy
+            const payload = {
+                message: userMsg,
+                history: internalHistory,
+                context: options.context, // Document content
+                enableSearch: options.enableSearch,
+                enableThinking: options.enableThinking
+            };
+
+            const data = await postToProxy('/chat', payload);
+
+            // 3. Process Response
+            const modelResponseText = data.text;
+            
+            // 4. Add Model Response to History (if text exists)
+            if (modelResponseText) {
+                internalHistory.push({ role: 'model', parts: [{ text: modelResponseText }] });
+            }
+
+            // Return structure matching GenerateContentResponse for ChatBot.tsx
+            return {
+                text: modelResponseText,
+                candidates: data.candidates, // Needed for grounding metadata
+                functionCalls: data.functionCalls
+            };
+        }
     };
-
-    if (options.enableSearch) {
-        if (!config.tools) config.tools = [];
-        config.tools.push({ googleSearch: {} });
-    }
-
-    if (options.enableThinking) {
-        config.thinkingConfig = { thinkingBudget: 2048 }; 
-    }
-
-    return ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: config,
-        history: options.history
-    });
 };
 
 export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string | undefined> => {
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: text.substring(0, 2000) }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: voiceName }, 
-                    },
-                },
-            },
-        });
-        return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        const data = await postToProxy('/speech', { text, voiceName });
+        return data.audioData; // Base64 string
     } catch (error) {
         console.error("TTS generation failed:", error);
         throw error;
@@ -175,69 +176,17 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
 
 export const analyzeImage = async (base64Image: string, mimeType: string): Promise<string> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: {
-                parts: [
-                    { inlineData: { mimeType: mimeType, data: base64Image } },
-                    { text: "Analyze this document/image. Extract all text, headings, tables. Return Semantic HTML5. Preserve original language." }
-                ]
-            }
-        });
-        let html = response.text || '';
-        html = html.replace(/```html/g, '').replace(/```/g, '');
-        return html;
+        const data = await postToProxy('/image-analyze', { image: base64Image, mimeType });
+        return data.html;
     } catch (error) {
         return `<p>Error analyzing image.</p>`;
     }
 };
 
-/**
- * Fetch Web Page Content using Gemini 2.5 Flash with Google Search
- * Robust rewrite to handle model refusals and formatting issues.
- */
 export const fetchWebPageContent = async (url: string, targetLanguage: string = 'English'): Promise<{title: string, html: string, text: string}> => {
     try {
-        // Use a "Search and Extract" strategy instead of "Browse to" to avoid capability refusals
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `You are a web extraction tool. Use Google Search to find the content of the article at this URL: ${url}.
-            
-            1. Extract the Full Title and the Full Article Text.
-            2. Translate the content into ${targetLanguage} (if it is not already in that language).
-            3. Format your response strictly as a JSON object with these keys:
-            "title": The article title (in ${targetLanguage}).
-            "contentHtml": The full text formatted as accessible Semantic HTML (h1, p, ul, table) in ${targetLanguage}.
-            "plainText": The full plain text in ${targetLanguage}.
-
-            Do not chat. Do not apologize. Just return the JSON code block.`,
-            config: {
-                tools: [{ googleSearch: {} }] 
-            }
-        });
-
-        const text = response.text || '';
-        if (!text) throw new Error("No content returned.");
-
-        // Robust JSON extraction using Regex to bypass conversational filler
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            // Fallback: Model returned text but not JSON. Let's assume it's the article content.
-            return {
-                title: "Extracted Content",
-                html: `<p>${text.replace(/\n/g, '<br>')}</p>`,
-                text: text
-            };
-        }
-
-        const cleanJson = jsonMatch[0];
-        const data = JSON.parse(cleanJson);
-        
-        return {
-            title: data.title || "Web Page",
-            html: data.contentHtml || "<p>No content found.</p>",
-            text: data.plainText || "No content found."
-        };
+        const data = await postToProxy('/web-fetch', { url, targetLanguage });
+        return data;
     } catch (error) {
         console.error("Web fetch failed:", error);
         throw new Error("Could not fetch web page content. Please try a different URL.");

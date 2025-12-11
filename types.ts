@@ -1,6 +1,4 @@
 
-import { Chat } from "@google/genai";
-
 // Document structure types
 export enum DocumentType {
   PDF = 'PDF',
@@ -78,6 +76,29 @@ export interface ChatMessage {
   sources?: { title: string; uri: string }[];
 }
 
+// --- SDK REPLACEMENTS ---
+
+export interface Content {
+    role: string;
+    parts: { text: string }[];
+}
+
+export interface PineXOptions {
+  enableSearch?: boolean;
+  enableThinking?: boolean;
+  context?: string;
+  history?: Content[];
+}
+
+// Mimics the GoogleGenAI Chat interface
+export interface Chat {
+  sendMessage: (params: { message: string }) => Promise<{
+    text: string;
+    candidates?: any[]; // For grounding metadata
+    functionCalls?: any[]; // For tool usage
+  }>;
+}
+
 export interface ReaderProps {
   page: PageData | undefined;
   pdfProxy: any; // Raw PDF Document Proxy from PDF.js
@@ -88,6 +109,5 @@ export interface ReaderProps {
   onBookmark: (bm: Bookmark) => void;
   viewMode: 'original' | 'reflow'; // Controlled by parent
   onDoubleTap?: () => void;
+  jumpToText?: string | null; // New: For TOC Navigation
 }
-
-export type { Chat };

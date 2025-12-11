@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="goldBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FFA500"/>
+    </linearGradient>
+    <linearGradient id="royalCrown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FDB931"/>
+      <stop offset="50%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+  </defs>
+  <path d="M256 160 Q200 80 160 140 L256 220 L352 140 Q312 80 256 160" fill="#2E8B57"/>
+  <path d="M256 150 Q230 60 200 120 L256 210 L312 120 Q282 60 256 150" fill="#1E5D38"/>
+  <ellipse cx="256" cy="330" rx="110" ry="135" fill="url(#goldBody)" />
+  <path d="M190 270 L320 390 M190 330 L320 270 M220 250 L290 410" stroke="#B8860B" stroke-width="3" opacity="0.3" fill="none"/>
+  <path d="M196 140 L196 90 L226 120 L256 60 L286 120 L316 90 L316 140 Z" fill="url(#royalCrown)" stroke="#8B4513" stroke-width="2"/>
+  <circle cx="196" cy="85" r="6" fill="#DC143C" stroke="#fff" stroke-width="1"/>
+  <circle cx="256" cy="55" r="8" fill="#4169E1" stroke="#fff" stroke-width="1"/>
+  <circle cx="316" cy="85" r="6" fill="#DC143C" stroke="#fff" stroke-width="1"/>
+</svg>

@@ -1,9 +1,12 @@
 
+import { ChatMessage } from "../types";
+
 const DB_NAME = 'PineReaderDB';
 const STORE_FILES = 'files';
 const STORE_BOOKMARKS = 'bookmarks';
 const STORE_AUDIO = 'audio';
-const DB_VERSION = 5; // Incremented for Audio store
+const STORE_CHAT = 'chat_history'; // New store for Chat Persistence
+const DB_VERSION = 6; // Incremented for Chat store
 
 // Interface for what we store in IndexedDB
 export interface StoredFileEntry {
@@ -33,6 +36,12 @@ export interface StoredBookmark {
   timestamp: number;
 }
 
+export interface StoredChat {
+    fileId: string;
+    messages: ChatMessage[];
+    lastUpdated: number;
+}
+
 // Open Database
 const openDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
@@ -52,6 +61,9 @@ const openDB = (): Promise<IDBDatabase> => {
             }
             if (!db.objectStoreNames.contains(STORE_AUDIO)) {
                 db.createObjectStore(STORE_AUDIO, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(STORE_CHAT)) {
+                db.createObjectStore(STORE_CHAT, { keyPath: 'fileId' });
             }
         };
 
@@ -229,6 +241,43 @@ export const getAudioData = async (fileId: string, pageNumber: number): Promise<
             request.onerror = () => resolve(null);
         });
     } catch (e) { return null; }
+};
+
+// --- CHAT PERSISTENCE OPERATIONS ---
+
+export const savePineXMessages = async (fileId: string, messages: ChatMessage[]): Promise<void> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_CHAT, 'readwrite');
+            const store = tx.objectStore(STORE_CHAT);
+            const entry: StoredChat = {
+                fileId,
+                messages,
+                lastUpdated: Date.now()
+            };
+            const request = store.put(entry);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject("Failed to save chat");
+        });
+    } catch (e) { console.error("Chat save error", e); }
+};
+
+export const getPineXMessages = async (fileId: string): Promise<ChatMessage[]> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_CHAT, 'readonly');
+            const store = tx.objectStore(STORE_CHAT);
+            const request = store.get(fileId);
+            
+            request.onsuccess = () => {
+                const result = request.result as StoredChat;
+                resolve(result ? result.messages : []);
+            };
+            request.onerror = () => resolve([]);
+        });
+    } catch (e) { return []; }
 };
 
 // Backward compatibility (gets the most recent file)

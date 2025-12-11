@@ -15,7 +15,8 @@ export const Reader: React.FC<ReaderProps> = ({
   documentName,
   onBookmark,
   viewMode,
-  onDoubleTap
+  onDoubleTap,
+  jumpToText
 }) => {
   const [scale, setScale] = React.useState(1.0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,6 +39,24 @@ export const Reader: React.FC<ReaderProps> = ({
          semanticRef.current.focus({ preventScroll: true });
      }
   }, [page?.pageNumber]);
+
+  // Jump to Text (TOC) Effect
+  useEffect(() => {
+      if (jumpToText && semanticRef.current) {
+          // Find element containing the text
+          const elements = semanticRef.current.querySelectorAll('h1, h2, h3, h4, h5, h6, p');
+          for (let i = 0; i < elements.length; i++) {
+              const el = elements[i] as HTMLElement;
+              if (el.textContent && el.textContent.includes(jumpToText)) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  el.focus();
+                  el.classList.add('bg-yellow-200', 'dark:bg-yellow-800'); // Highlight
+                  setTimeout(() => el.classList.remove('bg-yellow-200', 'dark:bg-yellow-800'), 2000);
+                  break;
+              }
+          }
+      }
+  }, [jumpToText, page?.pageNumber]);
 
   // Determine Font Family based on Settings
   const fontStyle = React.useMemo(() => {

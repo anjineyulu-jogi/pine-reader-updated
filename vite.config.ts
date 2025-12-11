@@ -8,9 +8,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    // This allows `process.env.API_KEY` to work in the browser/APK
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+    // SECURITY: Removed `define` block. API_KEY is no longer injected into the client.
+    server: {
+        // Optional proxy configuration for local development
+        proxy: {
+            '/api': {
+                target: 'http://localhost:3000', // Assuming proxy-server.js runs on 3000
+                changeOrigin: true,
+            }
+        }
     },
     build: {
       outDir: 'dist',

@@ -3,17 +3,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Accessibility Focus Rings */
+/* ACCESSIBILITY: High Visibility Focus Rings */
+/* Replaces default browser outline with a thick, high-contrast ring */
 *:focus-visible {
-  outline: 4px solid #1a73e8;
-  outline-offset: 2px;
-}
-.high-contrast *:focus-visible {
-  outline: 4px solid #FFFF00;
-  outline-offset: 2px;
+  outline: 4px solid #1a73e8; /* Google Blue */
+  outline-offset: 4px;
+  border-radius: 4px;
+  z-index: 50;
 }
 
-/* Screen Reader Only Class - Hides content visually but keeps it accessible */
+.high-contrast *:focus-visible {
+  outline: 6px solid #FFFF00; /* Yellow */
+  outline-offset: 4px;
+  box-shadow: 0 0 0 8px #000000; /* Black outer ring for double contrast */
+}
+
+/* Touch Target Helper - Ensures 48px min size */
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Screen Reader Only Class */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -26,34 +37,46 @@
   border-width: 0;
 }
 
-/* Semantic Content Styling for generated HTML (Reflow Mode) */
-.semantic-content h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; line-height: 1.2; }
-.semantic-content h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; border-bottom: 1px solid currentColor; padding-bottom: 0.2em; line-height: 1.3; }
-.semantic-content h3 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1em; line-height: 1.4; }
-
-.semantic-content p { 
-  margin-bottom: 1em; 
-  line-height: inherit; 
-  text-align: left; 
+/* Typography Improvements */
+body {
+  font-size: 18px; /* Slightly larger base font */
+  line-height: 1.6;
 }
 
-/* Table Styling */
+/* Semantic Content Styling (Reader View) */
+.semantic-content h1 { font-size: 2.2em; font-weight: 800; margin-bottom: 0.6em; margin-top: 0.5em; line-height: 1.2; letter-spacing: -0.02em; }
+.semantic-content h2 { font-size: 1.8em; font-weight: 700; margin-bottom: 0.6em; margin-top: 1.2em; border-bottom: 2px solid currentColor; padding-bottom: 0.3em; line-height: 1.3; }
+.semantic-content h3 { font-size: 1.4em; font-weight: 700; margin-bottom: 0.5em; margin-top: 1em; line-height: 1.4; }
+
+.semantic-content p { 
+  margin-bottom: 1.2em; 
+  line-height: 1.8; 
+  text-align: left; 
+  max-width: 65ch; /* Optimal reading width */
+}
+
+/* Accessible Tables */
 .semantic-content table { 
   width: 100%; 
-  border-collapse: collapse; 
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 1.5em 0; 
-  font-size: 0.9em;
+  font-size: 1em;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  overflow: hidden;
 }
 .semantic-content th, .semantic-content td { 
   border: 1px solid #ccc; 
-  padding: 8px 12px; 
+  padding: 12px 16px; /* Larger hit area for cells */
   text-align: left; 
 }
-.semantic-content th { background-color: #f3f4f6; font-weight: bold; }
-.dark .semantic-content th { background-color: #374151; border-color: #4b5563; }
-.dark .semantic-content td { border-color: #4b5563; }
+.semantic-content th { background-color: #e8f0fe; font-weight: 800; color: #174ea6; }
 
-/* High Contrast Table Overrides */
+.dark .semantic-content th { background-color: #303134; border-color: #5f6368; color: #e8eaed; }
+.dark .semantic-content td { border-color: #5f6368; }
+
+/* High Contrast Overrides */
 .high-contrast .semantic-content table, 
 .high-contrast .semantic-content th, 
 .high-contrast .semantic-content td {
@@ -64,51 +87,16 @@
 
 .semantic-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
 .semantic-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
-.semantic-content a { color: #1a73e8; text-decoration: underline; font-weight: 500; }
-.high-contrast .semantic-content a { color: #00FF00; }
+.semantic-content a { color: #1a73e8; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; font-weight: 700; }
+.high-contrast .semantic-content a { color: #00FF00; text-decoration-style: dashed; }
 
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* PRINT STYLES FOR SAVE AS PDF */
 @media print {
-  /* Hide all UI elements */
-  header, footer, nav, button, .bottom-dock, .pwa-nav, .no-print {
-    display: none !important;
-  }
-  
-  /* Reset container styles */
-  body, #root, main, div {
-    height: auto !important;
-    overflow: visible !important;
-    background: white !important;
-    color: black !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    position: static !important;
-  }
-
-  /* Show only semantic content */
-  .semantic-content {
-    display: block !important;
-    font-size: 12pt !important;
-    color: black !important;
-    padding: 2cm !important;
-  }
-
-  /* Ensure visually hidden content for screen readers IS printed if it's the main text */
-  .sr-only {
-     position: static !important;
-     width: auto !important;
-     height: auto !important;
-     clip: auto !important;
-     white-space: normal !important;
-     overflow: visible !important;
-  }
-
-  /* Hide raw canvas */
-  canvas {
-      display: none !important;
-  }
+  header, footer, nav, button, .bottom-dock, .pwa-nav, .no-print { display: none !important; }
+  body, #root, main, div { height: auto !important; overflow: visible !important; background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; position: static !important; }
+  .semantic-content { display: block !important; font-size: 12pt !important; color: black !important; padding: 2cm !important; }
+  canvas { display: none !important; }
 }
