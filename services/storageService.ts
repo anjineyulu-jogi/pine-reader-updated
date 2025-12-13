@@ -1,12 +1,13 @@
 
-import { ChatMessage } from "../types";
+import { ChatMessage, ParsedDocument } from "../types";
 
 const DB_NAME = 'PineReaderDB';
 const STORE_FILES = 'files';
 const STORE_BOOKMARKS = 'bookmarks';
 const STORE_AUDIO = 'audio';
-const STORE_CHAT = 'chat_history'; // New store for Chat Persistence
-const DB_VERSION = 6; // Incremented for Chat store
+const STORE_CHAT = 'chat_history'; 
+const STORE_PARSED_DOCS = 'parsed_docs'; // NEW: Store for cached ParsedDocument objects
+const DB_VERSION = 7; // Incremented for new store
 
 // Interface for what we store in IndexedDB
 export interface StoredFileEntry {
@@ -34,6 +35,7 @@ export interface StoredBookmark {
   type: 'HEADING' | 'LINK' | 'TABLE' | 'TEXT';
   pageNumber: number;
   timestamp: number;
+  summary?: string;
 }
 
 export interface StoredChat {
@@ -65,6 +67,10 @@ const openDB = (): Promise<IDBDatabase> => {
             if (!db.objectStoreNames.contains(STORE_CHAT)) {
                 db.createObjectStore(STORE_CHAT, { keyPath: 'fileId' });
             }
+            // NEW Store
+            if (!db.objectStoreNames.contains(STORE_PARSED_DOCS)) {
+                db.createObjectStore(STORE_PARSED_DOCS, { keyPath: 'id' });
+            }
         };
 
         request.onblocked = () => {
@@ -74,7 +80,7 @@ const openDB = (): Promise<IDBDatabase> => {
 };
 
 // Save file to IndexedDB
-export const saveRecentFileToStorage = async (file: File): Promise<void> => {
+export const saveRecentFileToStorage = async (file: File, metadata?: Partial<StoredFileEntry>): Promise<void> => {
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -87,7 +93,8 @@ export const saveRecentFileToStorage = async (file: File): Promise<void> => {
                 name: file.name,
                 type: file.type,
                 size: file.size,
-                lastOpened: Date.now()
+                lastOpened: Date.now(),
+                ...metadata
             };
 
             const request = store.put(entry);
@@ -144,6 +151,54 @@ export const getStoredFile = async (id: string): Promise<File | null> => {
                         lastModified: result.lastOpened 
                     });
                     resolve(file);
+                } else {
+                    resolve(null);
+                }
+            };
+            request.onerror = () => resolve(null);
+        });
+    } catch (e) {
+        return null;
+    }
+};
+
+// --- PARSED DOCUMENT CACHING ---
+
+export const saveParsedDocument = async (doc: ParsedDocument, fileId: string): Promise<void> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_PARSED_DOCS, 'readwrite');
+            const store = tx.objectStore(STORE_PARSED_DOCS);
+            
+            // We store the ParsedDocument JSON directly
+            const entry = {
+                id: fileId,
+                document: doc,
+                timestamp: Date.now()
+            };
+
+            const request = store.put(entry);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject("Failed to save parsed document");
+        });
+    } catch (e) {
+        console.error("Parsed Doc Save Error:", e);
+    }
+};
+
+export const getParsedDocument = async (fileId: string): Promise<ParsedDocument | null> => {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_PARSED_DOCS, 'readonly');
+            const store = tx.objectStore(STORE_PARSED_DOCS);
+            const request = store.get(fileId);
+            
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result && result.document) {
+                    resolve(result.document as ParsedDocument);
                 } else {
                     resolve(null);
                 }

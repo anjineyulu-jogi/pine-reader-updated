@@ -1,21 +1,24 @@
 
 import React, { useState } from 'react';
-import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles, Languages, BookOpen, GraduationCap, Coffee, Users, Globe } from 'lucide-react';
+import { Sun, Moon, Eye, Type, Volume2, Mail, Send, Minus, Plus, Phone, Sparkles, Languages, BookOpen, GraduationCap, Coffee, Users, Globe, ArrowLeft, FastForward, FileText, Rss, Info } from 'lucide-react';
 import { AppSettings, ColorMode, ReadingLevel } from '../types';
 import { Button } from './ui/Button';
 import { AVAILABLE_VOICES, SUPPORTED_LANGUAGES } from '../constants';
 import clsx from 'clsx';
 import { PineappleLogo } from './ui/PineappleLogo';
+import { LegalView } from './LegalView';
 
 interface SettingsPanelProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
+  onBack?: () => void;
 }
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdateSettings }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdateSettings, onBack }) => {
   const [feedbackEmail, setFeedbackEmail] = useState('');
   const [feedbackSubject, setFeedbackSubject] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [showLegalOverlay, setShowLegalOverlay] = useState<'Privacy' | 'T&C' | null>(null);
   
   const handleChange = (key: keyof AppSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
@@ -45,15 +48,36 @@ Sent via Pine-reader App`
 
   return (
     <div className="flex-1 overflow-y-auto p-6 pb-24 space-y-6 max-w-2xl mx-auto w-full animate-in fade-in duration-300 bg-gray-50 dark:bg-black">
-      <header className="flex items-center gap-4 mb-4">
-        <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
-             <PineappleLogo className="w-10 h-10" />
-        </div>
-        <div>
-            <h2 className={clsx("text-3xl font-extrabold", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Settings</h2>
-            <p className={clsx("text-sm font-medium opacity-70", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-100" : "text-gray-500 dark:text-gray-400")}>Customize your reading experience.</p>
-        </div>
-      </header>
+      
+      {/* NEW HEADER: Conditionally render if onBack is provided */}
+        {onBack && (
+            <div className={clsx(
+                "flex items-center p-4 border-b shrink-0 -mx-6 -mt-6 mb-6", 
+                settings.colorMode === ColorMode.HIGH_CONTRAST ? "border-yellow-300 bg-black" : "border-gray-200 dark:border-gray-800 dark:bg-gray-900"
+            )}>
+                <Button
+                    label="Back to Documents"
+                    variant="ghost"
+                    onClick={onBack}
+                    colorMode={settings.colorMode}
+                    className="p-1 -ml-2"
+                    icon={<ArrowLeft className="w-6 h-6" />}
+                />
+                <h1 className={clsx("text-xl font-bold flex-1 text-center pr-8", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Settings</h1> 
+            </div>
+        )}
+
+      {!onBack && (
+        <header className="flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
+                <PineappleLogo className="w-10 h-10" />
+            </div>
+            <div>
+                <h2 className={clsx("text-3xl font-extrabold", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Settings</h2>
+                <p className={clsx("text-sm font-medium opacity-70", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-100" : "text-gray-500 dark:text-gray-400")}>Customize your reading experience.</p>
+            </div>
+        </header>
+      )}
 
       {/* Color Mode */}
       <section className={clsx(sectionClass, sectionStyle)}>
@@ -225,29 +249,58 @@ Sent via Pine-reader App`
            </div>
       </section>
 
-      {/* Voice Settings */}
+      {/* Audio Settings */}
       <section className={clsx(sectionClass, sectionStyle)}>
            <h3 className="font-bold text-xl flex items-center gap-3">
-              <Volume2 className="w-6 h-6 text-[#FFC107]" /> Voice Config
+              <Volume2 className="w-6 h-6 text-[#FFC107]" /> Audio Configuration
            </h3>
-           <p className="text-sm opacity-70 font-medium">Select your preferred voice for reading.</p>
+           
+           <div className="space-y-4">
+               <div>
+                   <p className="text-sm opacity-70 font-medium mb-2">Voice Selection</p>
+                   <div className="relative">
+                      <select
+                        id="voice-select"
+                        value={settings.voiceName || 'Kore'}
+                        onChange={(e) => handleChange('voiceName', e.target.value)}
+                        className={clsx(
+                          "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow",
+                          settings.colorMode === ColorMode.HIGH_CONTRAST 
+                            ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500"
+                            : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-[#FFC107] focus:ring-[#FFC107]/20"
+                        )}
+                      >
+                        {AVAILABLE_VOICES.map(voice => (
+                          <option key={voice.id} value={voice.id}>{voice.name}</option>
+                        ))}
+                      </select>
+                   </div>
+               </div>
 
-           <div className="relative">
-              <select
-                id="voice-select"
-                value={settings.voiceName || 'Kore'}
-                onChange={(e) => handleChange('voiceName', e.target.value)}
-                className={clsx(
-                  "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow",
-                  settings.colorMode === ColorMode.HIGH_CONTRAST 
-                    ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500"
-                    : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-[#FFC107] focus:ring-[#FFC107]/20"
-                )}
-              >
-                {AVAILABLE_VOICES.map(voice => (
-                  <option key={voice.id} value={voice.id}>{voice.name}</option>
-                ))}
-              </select>
+               <div>
+                   <p className="text-sm opacity-70 font-medium mb-2 flex items-center gap-2">
+                       <FastForward className="w-4 h-4" /> Seek Interval
+                   </p>
+                   <div className="grid grid-cols-3 gap-3">
+                        {[10, 30, 60].map(seconds => (
+                            <button
+                                key={seconds}
+                                aria-pressed={settings.seekDuration === seconds}
+                                onClick={() => handleChange('seekDuration', seconds)}
+                                className={clsx(
+                                    "p-3 rounded-xl border-2 font-bold text-center transition-all",
+                                    settings.seekDuration === seconds
+                                        ? (settings.colorMode === ColorMode.HIGH_CONTRAST 
+                                            ? "bg-yellow-300 text-black border-white" 
+                                            : "bg-[#FFC107] text-black border-[#FFC107]")
+                                        : "bg-transparent border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-white/5"
+                                )}
+                            >
+                                {seconds}s
+                            </button>
+                        ))}
+                   </div>
+               </div>
            </div>
       </section>
 
@@ -307,39 +360,87 @@ Sent via Pine-reader App`
           </div>
       </section>
 
-      {/* About Section */}
+      {/* About Pine Reader (Legal & Updates) */}
       <section className={clsx(sectionClass, sectionStyle)}>
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Info className="w-6 h-6 text-[#FFC107]" /> About Pine Reader
+          </h2>
+          
+          <div className="space-y-4">
+              <div className="flex justify-between items-center py-2 border-b border-inherit border-opacity-20">
+                  <span className="font-medium flex items-center gap-2">
+                      <FileText className="w-4 h-4 opacity-70" /> Legal
+                  </span>
+                  <div className="flex gap-4">
+                      <button 
+                          onClick={() => setShowLegalOverlay('Privacy')} 
+                          className={clsx("text-sm hover:underline font-medium", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-blue-600 dark:text-blue-400")}
+                      >
+                          Privacy Policy
+                      </button>
+                      <button 
+                          onClick={() => setShowLegalOverlay('T&C')} 
+                          className={clsx("text-sm hover:underline font-medium", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-blue-600 dark:text-blue-400")}
+                      >
+                          T&amp;C
+                      </button>
+                  </div>
+              </div>
+
+              <div className="flex justify-between items-center py-2">
+                  <span className="font-medium flex items-center gap-2">
+                      <Rss className="w-4 h-4 opacity-70" /> Updates
+                  </span>
+                  <a 
+                      href="https://www.the-pineapple.net" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className={clsx("text-sm hover:underline font-medium", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-blue-600 dark:text-blue-400")}
+                  >
+                      Visit Website
+                  </a>
+              </div>
+          </div>
+      </section>
+
+      {/* Version & Info Section */}
+      <section className={clsx(sectionClass, 
+        settings.colorMode === ColorMode.HIGH_CONTRAST 
+          ? "border-yellow-300 bg-black text-yellow-300" 
+          : "bg-transparent border-transparent shadow-none"
+      )}>
            <div className="flex flex-col items-center text-center space-y-2 py-4">
               <PineappleLogo className="w-16 h-16 mb-2 text-yellow-500 drop-shadow-sm" />
               <h3 className="font-bold text-2xl">The Pineapple Company</h3>
               <p className="font-medium italic opacity-80 text-lg">The crown stays on. 🍍</p>
            </div>
 
-           <div className="border-t border-b py-6 border-inherit border-opacity-20 space-y-6">
+           <div className="border-t border-b py-6 border-gray-200 dark:border-gray-700 space-y-6">
               <div className="text-center">
                   <h4 className="font-bold text-xl">Pine Reader</h4>
                   <p className="text-xs uppercase tracking-[0.2em] opacity-70 mt-1 font-semibold">Read the way you live.</p>
               </div>
 
+              {/* APPLICATION DESCRIPTION */}
               <div className="text-base leading-relaxed space-y-4 opacity-90 px-2 text-center sm:text-left">
                   <p>
-                    Pine Reader is the first document reader built equally for blind and sighted users — with zero compromise.
+                    Pine Reader is the first document reader built for **uncompromised accessibility**,
+                    providing a seamless experience for both blind and sighted users. Read any PDF,
+                    DOCX, or TXT file with crystal-clear visual layout, while native screen readers
+                    (like TalkBack) announce headings, tables, links, and images perfectly.
                   </p>
                   <p>
-                    Read any PDF, DOCX, XLSX, or text file exactly like Adobe Acrobat Reader mobile, while TalkBack reads real headings, tables, links, and images perfectly.
-                  </p>
-                  <p>
-                    Powered by Pine-X — your personal assistant that reads the entire document and answers any question instantly.
+                    Powered by Pine-X — your personal AI assistant that provides instant answers and document insights.
                   </p>
               </div>
            </div>
 
            <div className="text-center space-y-1 py-2">
               <p className="font-medium">Made with ❤️ in India</p>
-              <p className="opacity-70 text-sm">Version 2.3.0</p>
+              <p className="opacity-70 text-sm">Version 2.5.0</p>
            </div>
 
-           {/* Changelog */}
+           {/* Changelog - Features List */}
            <details className={clsx(
               "group p-4 rounded-xl border mt-4 cursor-pointer transition-all-300",
               settings.colorMode === ColorMode.HIGH_CONTRAST
@@ -347,16 +448,26 @@ Sent via Pine-reader App`
                 : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
            )}>
               <summary className="font-bold flex items-center gap-2 list-none select-none">
-                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> What's New in v2.3
+                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> Launch Features v2.5
               </summary>
               <ul className="space-y-2 text-sm opacity-90 list-disc pl-4 mt-3">
-                 <li><strong>Live Chat with Pine-X:</strong> Have real-time voice conversations with Pine-X about your documents.</li>
-                 <li><strong>Simplified Interface:</strong> Cleaner audio player with fewer buttons for easier navigation.</li>
-                 <li><strong>Audio Feedback:</strong> New sound effects confirm actions like web extraction and AI responses.</li>
-                 <li><strong>Enhanced Contact:</strong> Direct support options added to Settings.</li>
+                 <li><strong>AI Insights & Summary:</strong> One-tap summary and keyword extraction powered by Pine-X.</li>
+                 <li><strong>Accessible Table Reading:</strong> Tables are read aloud with full column header context for screen readers.</li>
+                 <li><strong>Seamless Loading:</strong> Progressive loading and caching for instant document access.</li>
+                 <li><strong>Enhanced UI:</strong> Mobile-native control bars for intuitive, bottom-fixed navigation and audio controls.</li>
+                 <li><strong>Voice Control Confirmation:</strong> Auditory feedback for all Pine-X commands ("Go to page 5").</li>
+                 <li><strong>Web Reader & PDF Export:</strong> Read any URL without clutter and export clean, accessible PDFs.</li>
               </ul>
            </details>
       </section>
+
+      {/* Legal Overlay Modal */}
+      {showLegalOverlay && (
+          <LegalView 
+              documentType={showLegalOverlay}
+              onClose={() => setShowLegalOverlay(null)}
+          />
+      )}
     </div>
   );
 };

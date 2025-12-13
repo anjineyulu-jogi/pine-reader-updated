@@ -1,15 +1,16 @@
 
 {
   "name": "pine-reader",
-  "version": "2.3.0",
+  "version": "2.5.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "android:init": "npm install @capacitor/core @capacitor/cli @capacitor/android && npx cap init PineReader com.thepineapple.pinereader --web-dir=dist && npx cap add android",
-    "android:open": "npx cap open android"
+    "android:init": "npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/app @capacitor/share @capacitor-community/text-to-speech @capacitor/accessibility && npx cap init PineReader com.thepineapple.pinereader --web-dir=dist && npx cap add android",
+    "android:open": "npx cap open android",
+    "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -17,8 +18,13 @@
     "@google/genai": "latest",
     "lucide-react": "^0.344.0",
     "clsx": "^2.1.0",
+    "dompurify": "^3.0.11",
     "@capacitor/core": "^5.7.0",
     "@capacitor/android": "^5.7.0",
+    "@capacitor/app": "^5.0.7",
+    "@capacitor/share": "^5.0.7",
+    "@capacitor-community/text-to-speech": "^5.0.0",
+    "@capacitor/accessibility": "^5.0.0",
     "mammoth": "^1.7.1",
     "xlsx": "^0.18.5",
     "pdfjs-dist": "^3.11.174"

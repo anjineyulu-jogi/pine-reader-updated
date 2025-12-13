@@ -7,40 +7,51 @@ import { PINEX_SYSTEM_INSTRUCTION_BASE } from '../constants';
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- Pine-X Control Tools Definition ---
-const controlTools: FunctionDeclaration[] = [
+export const PineXToolDeclarations: FunctionDeclaration[] = [
     {
-        name: "setTheme",
-        description: "Change the app's display theme/color mode.",
+        name: 'execute_app_action',
+        description: 'Executes a command to control the application state, navigation, settings, or TTS.',
         parameters: {
             type: Type.OBJECT,
             properties: {
-                mode: { type: Type.STRING, enum: ["LIGHT", "DARK", "HIGH_CONTRAST"] }
+                action: {
+                    type: Type.STRING,
+                    description: 'The type of action to perform. Must be one of: NAVIGATE, SET_SETTING, TTS_CONTROL, SHARE.',
+                },
+                payload: {
+                    type: Type.OBJECT,
+                    description: 'A JSON object containing the parameters for the specific action.',
+                    properties: {
+                        tab: {
+                            type: Type.STRING,
+                            description: 'The tab ID to navigate to (e.g., DOCUMENTS, BOOKMARKS, SETTINGS). Only used for NAVIGATE.',
+                        },
+                        pageNumber: {
+                            type: Type.INTEGER,
+                            description: 'The 1-based page number to jump to. Only used for NAVIGATE.',
+                        },
+                        key: {
+                            type: Type.STRING,
+                            description: 'The AppSetting key to modify (e.g., colorMode, fontSize, speechRate). Only used for SET_SETTING.',
+                        },
+                        value: {
+                            type: Type.STRING,
+                            description: 'The new value for the setting key.',
+                        },
+                        command: {
+                            type: Type.STRING,
+                            description: 'The TTS control command (e.g., PLAY, PAUSE, FORWARD, BACK, STOP, RESUME). Only used for TTS_CONTROL.',
+                        },
+                        text: {
+                            type: Type.STRING,
+                            description: 'The text content to share. Only used for SHARE.',
+                        },
+                    },
+                },
             },
-            required: ["mode"]
-        }
+            required: ['action', 'payload'],
+        },
     },
-    {
-        name: "navigateApp",
-        description: "Navigate to a specific tab in the app.",
-        parameters: {
-            type: Type.OBJECT,
-            properties: {
-                destination: { type: Type.STRING, enum: ["DOCUMENTS", "PINEX", "BOOKMARKS", "SETTINGS", "WEB_READER"] }
-            },
-            required: ["destination"]
-        }
-    },
-    {
-        name: "setFontSize",
-        description: "Increase or decrease the text font size.",
-        parameters: {
-            type: Type.OBJECT,
-            properties: {
-                action: { type: Type.STRING, enum: ["increase", "decrease"] }
-            },
-            required: ["action"]
-        }
-    }
 ];
 
 // --- LIVE API IMPLEMENTATION ---
@@ -248,7 +259,6 @@ export const transformTextToSemanticHtml = async (text: string, readingLevel: Re
     });
 
     let html = response.text || '';
-    // Strip code blocks if present
     html = html.replace(/```html/g, '').replace(/```/g, '');
     return html;
   } catch (error) {
@@ -301,6 +311,91 @@ export const summarizeSelection = async (text: string): Promise<string> => {
     } catch (error) {
         console.error("Summarize failed:", error);
         throw new Error("Failed to summarize text.");
+    }
+};
+
+/**
+ * summarizeText
+ * Generates a two-sentence summary for bookmarks.
+ */
+export const summarizeText = async (text: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: `You are an expert summarization tool. Your goal is to provide a concise, two-sentence summary of the user-provided text. Focus on the main topic and key takeaway. Return only the summary text, do not chat or apologize.`,
+                temperature: 0.2,
+            },
+            contents: `TEXT TO SUMMARIZE: ${text.substring(0, 10000)}`
+        });
+        return response.text?.trim() || "";
+    } catch (error) {
+        console.error("Gemini summarization failed:", error);
+        return "AI Summary Unavailable.";
+    }
+};
+
+/**
+ * getSemanticLookup
+ * Provides a quick lookup definition.
+ */
+export const getSemanticLookup = async (text: string, context: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: `You are an instant definition and context tool. Based on the surrounding document context, provide a single, concise sentence that defines the selected phrase. Prioritize clarity and brevity. Return only the sentence.`,
+                temperature: 0.1,
+            },
+            contents: [
+                { role: 'user', parts: [{ text: `DOCUMENT CONTEXT: ${context.substring(0, 5000)}` }] },
+                { role: 'user', parts: [{ text: `SELECTED PHRASE: ${text}` }] }
+            ]
+        });
+        return response.text?.trim() || "Could not retrieve definition.";
+    } catch (error) {
+        console.error("Gemini lookup failed:", error);
+        return "Could not retrieve definition.";
+    }
+};
+
+/**
+ * translateSemanticHtml
+ * Translates web content to target language.
+ */
+export const translateSemanticHtml = async (htmlContent: string, targetLanguage: string): Promise<{title: string, html: string}> => {
+    try {
+        const prompt = `Translate the following HTML content, including all text within tags (h1, p, li, td, etc.), into ${targetLanguage}. Preserve all HTML structure, tags, and accessibility attributes exactly as they are. Only translate the visible text. Return ONLY the translated HTML content (do not wrap it in a code block or add any conversational text).`;
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: prompt,
+                temperature: 0.1,
+            },
+            contents: htmlContent
+        });
+
+        let translatedHtml = response.text || '';
+        translatedHtml = translatedHtml.replace(/```html/g, '').replace(/```/g, '');
+        
+        const titleResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: `Extract and translate the main title from the following HTML into ${targetLanguage}. Return only the translated title text.`,
+                temperature: 0.1,
+            },
+            contents: htmlContent.substring(0, 2000)
+        });
+        
+        return {
+            title: titleResponse.text?.trim() || 'Translated Article',
+            html: translatedHtml.trim(),
+        };
+
+    } catch (error) {
+        console.error("Gemini HTML translation failed:", error);
+        throw new Error("Could not translate content.");
     }
 };
 
@@ -366,7 +461,7 @@ export const createChatSession = (options: PineXOptions): Chat => {
 
     const config: any = {
         systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: controlTools }]
+        tools: [{ functionDeclarations: PineXToolDeclarations }]
     };
 
     if (options.enableSearch) {
@@ -481,7 +576,6 @@ export const fetchWebPageContent = async (url: string, targetLanguage: string = 
             `,
             config: {
                 tools: [{ googleSearch: {} }],
-                // responseMimeType: "application/json" is REMOVED to avoid conflict with Search tools
             }
         });
 

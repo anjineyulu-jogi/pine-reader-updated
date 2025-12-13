@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Bookmark as BookmarkIcon, Trash2, ChevronLeft, Share } from 'lucide-react';
+import { Bookmark as BookmarkIcon, Trash2, ChevronLeft, Share, ArrowLeft } from 'lucide-react';
 import { Bookmark, AppSettings, ColorMode } from '../types';
 import { getBookmarks, deleteBookmark } from '../services/storageService';
 import clsx from 'clsx';
@@ -66,36 +66,47 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({ settings, onOpenBo
 
   return (
     <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300 pb-32 overflow-y-auto">
-      <header className="mb-8 flex items-center justify-between gap-3 sticky top-0 z-10 py-4 -mx-6 px-6 backdrop-blur-md bg-inherit/90">
-        <div className="flex items-center gap-3">
-            {onBack && (
+      {/* NEW HEADER: Conditionally render if onBack is provided */}
+        {onBack && (
+            <div className={clsx(
+                "flex items-center p-4 border-b shrink-0 mb-4 -mx-6", 
+                isHighContrast ? "border-yellow-300 bg-black" : "border-gray-200 dark:border-gray-800 dark:bg-gray-900"
+            )}>
                 <Button
-                    label="Back"
+                    label="Back to Documents"
+                    variant="ghost"
                     onClick={onBack}
                     colorMode={settings.colorMode}
-                    variant="secondary"
-                    icon={<ChevronLeft className="w-5 h-5" />}
-                    className="p-1.5 h-auto rounded-full mr-2"
+                    className="p-1 -ml-2"
+                    icon={<ArrowLeft className="w-6 h-6" />}
+                />
+                {/* Title centered, push away from the button */}
+                <h1 className={clsx("text-xl font-bold flex-1 text-center pr-8", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Bookmarks</h1> 
+            </div>
+        )}
+
+      {!onBack && (
+        <header className="mb-8 flex items-center justify-between gap-3 sticky top-0 z-10 py-4 -mx-6 px-6 backdrop-blur-md bg-inherit/90">
+            <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                    <h2 className="text-3xl font-bold flex items-center gap-2">
+                        <BookmarkIcon className="w-8 h-8 fill-current text-[#FFC107]" /> Bookmarks
+                    </h2>
+                    <p className="opacity-80 text-sm font-medium">Quickly jump to your saved sections.</p>
+                </div>
+            </div>
+            
+            {bookmarks.length > 0 && (
+                <Button 
+                    label="Share All"
+                    onClick={handleShareAll}
+                    colorMode={settings.colorMode}
+                    variant="ghost"
+                    icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-600 dark:text-gray-300")} />}
                 />
             )}
-            <div className="flex flex-col">
-                <h2 className="text-3xl font-bold flex items-center gap-2">
-                    <BookmarkIcon className="w-8 h-8 fill-current text-[#FFC107]" /> Bookmarks
-                </h2>
-                <p className="opacity-80 text-sm font-medium">Quickly jump to your saved sections.</p>
-            </div>
-        </div>
-        
-        {bookmarks.length > 0 && (
-            <Button 
-                label="Share All"
-                onClick={handleShareAll}
-                colorMode={settings.colorMode}
-                variant="ghost"
-                icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-600 dark:text-gray-300")} />}
-            />
-        )}
-      </header>
+        </header>
+      )}
 
       {bookmarks.length === 0 ? (
           <div className="text-center py-20 opacity-50 flex flex-col items-center">
@@ -127,7 +138,13 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({ settings, onOpenBo
 
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="font-bold truncate text-lg leading-tight mb-1">{bm.text || "Bookmark"}</h3>
-                          <div className="flex items-center gap-2 text-sm opacity-70 font-medium">
+                          {/* NEW: Display Summary if available */}
+                          {bm.summary && (
+                              <p className={clsx("text-sm opacity-90 mt-1 italic line-clamp-2", isHighContrast ? "text-yellow-100" : "text-gray-500 dark:text-gray-400")}>
+                                  {bm.summary}
+                              </p>
+                          )}
+                          <div className="flex items-center gap-2 text-sm opacity-70 font-medium mt-1">
                               <span className="uppercase tracking-wider text-[10px] border px-1.5 py-0.5 rounded border-current">
                                   {bm.type}
                               </span>

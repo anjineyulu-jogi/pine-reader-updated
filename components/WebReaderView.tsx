@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Globe, Clipboard, ArrowRight, Loader2, AlertCircle, Link2, Layout, Type } from 'lucide-react';
+import { Globe, Clipboard, ArrowRight, Loader2, AlertCircle, Link2, Layout, Type, ArrowLeft, Languages } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
@@ -10,9 +10,12 @@ import { playCompletionSound } from '../services/audioService';
 interface WebReaderViewProps {
   settings: AppSettings;
   onReadUrl: (url: string) => Promise<void>;
+  onBack?: () => void;
+  onTranslate: () => void; 
+  isTranslating: boolean;
 }
 
-export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUrl }) => {
+export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUrl, onBack, onTranslate, isTranslating }) => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
         return;
     }
 
-    // Basic URL validation
     if (!url.startsWith('http')) {
         setError("URL must start with http:// or https://");
         return;
@@ -52,7 +54,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
 
     try {
       await onReadUrl(url.trim());
-      // On success
       triggerHaptic('success');
       playCompletionSound();
     } catch (err) {
@@ -68,8 +69,41 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
         isHighContrast ? "bg-black" : "bg-gray-50 dark:bg-black"
     )}>
       
+      {/* HEADER */}
+        {onBack && (
+            <div className={clsx(
+                "flex items-center p-4 border-b shrink-0 absolute top-0 left-0 right-0 z-10 justify-between", 
+                settings.colorMode === ColorMode.HIGH_CONTRAST ? "border-yellow-300 bg-black" : "border-gray-200 dark:border-gray-800 dark:bg-gray-900 bg-white"
+            )}>
+                <Button
+                    label="Back to Documents"
+                    variant="ghost"
+                    onClick={onBack}
+                    colorMode={settings.colorMode}
+                    className="p-1 -ml-2"
+                    icon={<ArrowLeft className="w-6 h-6" />}
+                />
+                
+                <h1 className={clsx("text-xl font-bold text-center", settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Web Reader</h1> 
+
+                {/* Translate Button */}
+                <Button
+                    label={isTranslating ? "Translating..." : "Translate Article"}
+                    variant="ghost"
+                    onClick={() => { triggerHaptic('medium'); onTranslate(); }}
+                    colorMode={settings.colorMode}
+                    disabled={isTranslating}
+                    className="p-1 -mr-2"
+                    icon={isTranslating 
+                        ? <Loader2 className="w-6 h-6 animate-spin" />
+                        : <Languages className="w-6 h-6" />
+                    }
+                />
+            </div>
+        )}
+
       {/* Central Content Container */}
-      <div className="w-full max-w-lg flex flex-col items-center text-center space-y-8">
+      <div className={clsx("w-full max-w-lg flex flex-col items-center text-center space-y-8", onBack && "mt-16")}>
         
         {/* Hero Icon */}
         <div className="relative">
@@ -101,8 +135,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="w-full space-y-6 relative">
-            
-            {/* Error Message */}
             {error && (
                 <div className={clsx(
                     "absolute -top-14 left-0 right-0 p-3 rounded-xl flex items-center justify-center gap-2 text-sm font-bold animate-in slide-in-from-top-2",
@@ -113,7 +145,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                 </div>
             )}
 
-            {/* Input Group */}
             <div className="relative group">
                 <div className={clsx(
                     "absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none transition-colors",
@@ -138,7 +169,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                     )}
                 />
                 
-                {/* Paste Button (Inside Input) */}
                 {!isLoading && !url && (
                     <button 
                         type="button"
@@ -156,7 +186,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                 )}
             </div>
 
-            {/* Action Button */}
             <Button 
                 label={isLoading ? "Analyzing..." : "Read Article"}
                 type="submit"
@@ -183,7 +212,6 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
             </Button>
         </form>
 
-        {/* Footer Hints */}
         <div className="grid grid-cols-3 gap-4 w-full pt-8 opacity-60">
              <div className="flex flex-col items-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">

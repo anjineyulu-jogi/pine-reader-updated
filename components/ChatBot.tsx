@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff } from 'lucide-react';
-import { Chat, ChatMessage, AppSettings, ColorMode, Content } from '../types';
+import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff, ArrowLeft } from 'lucide-react';
+import { Chat, ChatMessage, AppSettings, ColorMode, Content, PineXAction } from '../types';
 import { createChatSession, startLiveSession } from '../services/geminiService';
 import { Button } from './ui/Button';
 import clsx from 'clsx';
@@ -64,6 +64,7 @@ export const PineX: React.FC<PineXProps> = ({
         parts: [{ text: msg.text }]
     }));
 
+    // createChatSession includes tools by default now in geminiService
     chatSession.current = createChatSession({
         context: pageContext,
         enableSearch: useSearch,
@@ -163,8 +164,15 @@ export const PineX: React.FC<PineXProps> = ({
       let actionTaken = false;
       if (toolCalls && toolCalls.length > 0 && onControlAction) {
           for (const call of toolCalls) {
-              onControlAction(call.name, call.args);
-              actionTaken = true;
+              if (call.name === 'execute_app_action') {
+                  const pineAction = call.args as PineXAction;
+                  // Handle flattened args if needed (sometimes args come directly)
+                  // The prompt structure defined action/payload properly
+                  if (pineAction.action && pineAction.payload) {
+                      onControlAction(pineAction.action, pineAction.payload);
+                      actionTaken = true;
+                  }
+              }
           }
       }
 
@@ -185,7 +193,7 @@ export const PineX: React.FC<PineXProps> = ({
         // Fallback: Only show "Action completed" if NO text was returned but an action WAS taken.
         onUpdateMessages([...newHistory, { 
             role: 'model', 
-            text: "Done! I've updated the app settings as requested. 🍍" 
+            text: "Done! I've updated the app as requested. 🍍" 
         }]);
         triggerHaptic('success');
       } else {
@@ -295,11 +303,11 @@ export const PineX: React.FC<PineXProps> = ({
           <div className="flex items-center gap-3">
              {onBack && (
                  <Button 
-                    label="Back"
+                    label="Back to Documents"
                     onClick={onBack}
                     colorMode={settings.colorMode}
                     variant="secondary"
-                    icon={<ChevronLeft className="w-5 h-5" />}
+                    icon={<ArrowLeft className="w-5 h-5" />} // Use ArrowLeft for back
                     className="p-1.5 h-auto rounded-full shadow-sm"
                  />
              )}
