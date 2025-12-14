@@ -148,6 +148,7 @@ export interface ReaderProps {
   onFastForward: (seconds: number) => void;
   onAskPineX: () => void;
   onBack: () => void;
+  onShare: () => void;
 }
 
 export interface PineXAction {

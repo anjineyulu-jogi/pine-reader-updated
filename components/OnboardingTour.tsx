@@ -4,7 +4,7 @@ import { Button } from './ui/Button';
 import { ColorMode, AppSettings } from '../types';
 import clsx from 'clsx';
 import { PineappleLogo } from './ui/PineappleLogo';
-import { ChevronRight, Check } from 'lucide-react';
+import { ChevronRight, Check, BookOpen, ChevronsDown, MessageSquareText, MoreHorizontal, SkipForward } from 'lucide-react';
 import { triggerHaptic } from '../services/hapticService';
 import { LegalView } from './LegalView';
 
@@ -22,21 +22,39 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
 
     const steps = [
         {
-            title: "Welcome to Pine Reader",
-            text: "The crown stays on. 🍍\n\nI am Pine-X, your intelligent reading assistant. I can read documents aloud, answer questions, and help you navigate.",
+            title: "Uncompromised Reading",
+            text: "Pine Reader ensures perfect visual layout and full screen reader accessibility for every file type (PDF, DOCX, TXT).",
+            icon: <BookOpen className="w-20 h-20 mb-2 drop-shadow-md text-blue-500 dark:text-blue-400" />
         },
         {
-            title: "Accessible by Design",
-            text: "Navigate easily with tabs at the bottom. \n\nDouble-tap to stop reading. Double-tap with 3 fingers anywhere to ask 'Where am I?'. Long-press text to bookmark it.",
+            title: "New Control Bar Navigation",
+            text: "All document controls (Prev/Next Page, Jump To) are now fixed at the bottom for easy, one-handed navigation.",
+            icon: <ChevronsDown className="w-20 h-20 mb-2 drop-shadow-md text-green-500 dark:text-green-400" />
+        },
+        {
+            title: "Pine-X: Your AI Assistant",
+            text: "Tap the floating pineapple button (bottom right) to open the Pine-X chat, ask questions about your document, or get instant summaries.",
+            icon: <MessageSquareText className="w-20 h-20 mb-2 drop-shadow-md text-yellow-500" />
+        },
+        {
+            title: "Expanded Options Menu",
+            text: "Tap 'More' on the bottom bar to access secondary tools like Night Mode, Reflow Text, and Bookmarks.",
+            icon: <MoreHorizontal className="w-20 h-20 mb-2 drop-shadow-md text-purple-500 dark:text-purple-400" />
+        },
+        {
+            title: "High-Quality TTS Player",
+            text: "When you start 'Read Aloud,' the bottom bar transforms into the TTS Player. This includes Play/Pause, Fast Forward/Rewind (10s), and accessible table reading.",
+            icon: <SkipForward className="w-20 h-20 mb-2 drop-shadow-md text-red-500 dark:text-red-400" />
         },
         {
             title: "Ready to Read",
-            text: "Open any PDF, Word, or Web page. \n\nTap 'Read' for lifelike voice, or ask me to summarize. Let's get started!",
+            text: "The crown stays on. 🍍\n\nI am Pine-X, your intelligent reading assistant. I can read documents aloud, answer questions, and help you navigate.",
+            icon: <PineappleLogo className="w-20 h-20 mb-2 drop-shadow-md" />
         }
     ];
 
     useEffect(() => {
-        // Announce step change for TalkBack
+        // Focus container for screen readers when step changes
         if (containerRef.current) {
             containerRef.current.focus();
         }
@@ -49,7 +67,6 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
         } else {
             // Final step validation
             if (!hasAgreedToTerms) {
-                // Shake effect or visual feedback could be added here
                 return;
             }
             onComplete();
@@ -58,6 +75,14 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
 
     const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
     const isLastStep = step === steps.length - 1;
+
+    // Helper to render icon with correct high contrast override
+    const renderIcon = (iconNode: React.ReactNode) => {
+        if (isHighContrast) {
+            return React.cloneElement(iconNode as React.ReactElement, { className: "w-20 h-20 mb-2 drop-shadow-md text-yellow-300" });
+        }
+        return iconNode;
+    };
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-6">
@@ -73,7 +98,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
                         : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 )}
             >
-                <PineappleLogo className="w-20 h-20 mb-2 drop-shadow-md" />
+                {renderIcon(steps[step].icon)}
                 
                 <h2 className="text-2xl font-bold">{steps[step].title}</h2>
                 <p className="text-lg leading-relaxed opacity-90 whitespace-pre-line">{steps[step].text}</p>
@@ -92,25 +117,28 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
 
                 {/* Consent Checkbox (Only on last step) */}
                 {isLastStep && (
-                    <div className="w-full text-left bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-start gap-3">
-                            <input
-                                id="consent-check"
-                                type="checkbox"
-                                checked={hasAgreedToTerms}
-                                onChange={(e) => {
-                                    triggerHaptic('light');
-                                    onSetConsent(e.target.checked);
-                                }}
-                                className={clsx(
-                                    "mt-1 w-5 h-5 rounded focus:ring-2 shrink-0",
-                                    isHighContrast ? "accent-yellow-300 text-black" : "text-blue-600 focus:ring-blue-500"
-                                )}
-                            />
-                            <div className="text-sm leading-snug">
-                                <label htmlFor="consent-check" className="cursor-pointer select-none">
-                                    I have read and agree to the 
-                                </label>
+                    <div className="w-full bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 text-left">
+                        <div className="flex flex-col gap-3">
+                            <label className="flex items-center space-x-3 cursor-pointer p-1">
+                                <input
+                                    type="checkbox"
+                                    checked={hasAgreedToTerms}
+                                    onChange={(e) => {
+                                        triggerHaptic('light');
+                                        onSetConsent(e.target.checked);
+                                    }}
+                                    className={clsx(
+                                        "w-6 h-6 rounded focus:ring-2 shrink-0",
+                                        isHighContrast ? "accent-yellow-300 text-black" : "text-blue-600 focus:ring-blue-500"
+                                    )}
+                                />
+                                <span className="font-medium text-base">I agree to the terms below.</span>
+                            </label>
+                            
+                            {/* Explicit Buttons outside the label to prevent click conflicts */}
+                            {/* Added 'relative' to ensure z-index works correctly */}
+                            <div className="flex flex-wrap items-center gap-x-1 text-sm pl-9">
+                                <span className="opacity-80">Read our</span>
                                 <button 
                                     type="button"
                                     onClick={(e) => { 
@@ -118,11 +146,11 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
                                         e.stopPropagation(); 
                                         setShowLegalOverlay('Privacy'); 
                                     }}
-                                    className={clsx("font-bold hover:underline mx-1 inline-block z-10 relative", isHighContrast ? "text-yellow-300" : "text-blue-600 dark:text-blue-400")}
+                                    className={clsx("font-bold hover:underline relative z-20 p-1 rounded focus:outline-none focus:ring-2", isHighContrast ? "text-yellow-300 focus:ring-yellow-300" : "text-blue-600 dark:text-blue-400")}
                                 >
                                     Privacy Policy
                                 </button> 
-                                and
+                                <span className="opacity-80">and</span>
                                 <button 
                                     type="button"
                                     onClick={(e) => { 
@@ -130,7 +158,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, sett
                                         e.stopPropagation(); 
                                         setShowLegalOverlay('T&C'); 
                                     }}
-                                    className={clsx("font-bold hover:underline ml-1 inline-block z-10 relative", isHighContrast ? "text-yellow-300" : "text-blue-600 dark:text-blue-400")}
+                                    className={clsx("font-bold hover:underline relative z-20 p-1 rounded focus:outline-none focus:ring-2", isHighContrast ? "text-yellow-300 focus:ring-yellow-300" : "text-blue-600 dark:text-blue-400")}
                                 >
                                     Terms & Conditions
                                 </button>.

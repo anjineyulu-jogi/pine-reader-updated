@@ -6,7 +6,7 @@ import { THEME_CLASSES, SUPPORTED_LANGUAGES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { getSemanticLookup } from '../services/geminiService';
 import DOMPurify from 'dompurify';
-import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft, Share } from 'lucide-react';
 import { Button } from './ui/Button';
 import { JumpToPageModal } from './JumpToPageModal';
 
@@ -199,7 +199,8 @@ export const Reader: React.FC<ReaderProps> = (props) => {
     readerControlMode,
     setReaderControlMode,
     onAskPineX,
-    onBack
+    onBack,
+    onShare
   } = props;
 
   const [scale, setScale] = React.useState(1.0);
@@ -492,8 +493,15 @@ export const Reader: React.FC<ReaderProps> = (props) => {
             )}>
                 {documentName}
             </h1>
-            {/* Placeholder for balance */}
-            <div className="w-8"></div>
+            
+            <Button
+                label="Share"
+                onClick={onShare}
+                colorMode={settings.colorMode}
+                variant="ghost"
+                icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")} />}
+                className="shrink-0 p-1"
+            />
         </div>
 
         {/* PAGE CONTENT AREA */}

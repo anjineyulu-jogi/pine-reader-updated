@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff, ArrowLeft } from 'lucide-react';
+import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Chat, ChatMessage, AppSettings, ColorMode, Content, PineXAction } from '../types';
 import { createChatSession, startLiveSession } from '../services/geminiService';
 import { Button } from './ui/Button';
@@ -9,6 +9,7 @@ import { THEME_CLASSES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { PineappleLogo } from './ui/PineappleLogo';
 import { playCompletionSound, playStartSound } from '../services/audioService';
+import { AIDisclaimer } from './AIDisclaimer';
 
 interface PineXProps {
   pageContext?: string; 
@@ -380,7 +381,7 @@ export const PineX: React.FC<PineXProps> = ({
       </div>
 
       {/* CHAT AREA */}
-      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-6 pb-32 scroll-smooth", THEME_CLASSES[settings.colorMode])}>
+      <div className={clsx("flex-1 overflow-y-auto p-4 space-y-6 pb-40 scroll-smooth", THEME_CLASSES[settings.colorMode])}>
         {messages.map((msg, i) => (
             <div key={i} className={clsx(
                 "w-full flex animate-in slide-in-from-bottom-2 duration-300",
@@ -430,6 +431,11 @@ export const PineX: React.FC<PineXProps> = ({
                 </div>
             </div>
         )}
+        
+        <div className="mb-4 px-2">
+            <AIDisclaimer colorMode={settings.colorMode} />
+        </div>
+
         <div ref={messagesEndRef} />
       </div>
 

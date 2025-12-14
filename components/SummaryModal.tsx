@@ -5,6 +5,7 @@ import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
 import { triggerHaptic } from '../services/hapticService';
+import { AIDisclaimer } from './AIDisclaimer';
 
 interface SummaryModalProps {
   isOpen: boolean;
@@ -82,15 +83,19 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
                    {summaryText}
                </div>
                
-               <div className="pt-4 flex justify-end">
-                  <Button 
-                      label="Copy Summary"
-                      variant="secondary"
-                      colorMode={settings.colorMode}
-                      onClick={handleCopy}
-                      icon={<Copy className="w-4 h-4" />}
-                      className="text-sm"
-                  />
+               <div className="pt-4 flex flex-col gap-4">
+                  <div className="flex justify-end">
+                      <Button 
+                          label="Copy Summary"
+                          variant="secondary"
+                          colorMode={settings.colorMode}
+                          onClick={handleCopy}
+                          icon={<Copy className="w-4 h-4" />}
+                          className="text-sm"
+                      />
+                  </div>
+                  
+                  <AIDisclaimer colorMode={settings.colorMode} />
                </div>
             </div>
           )}

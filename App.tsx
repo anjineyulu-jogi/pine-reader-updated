@@ -835,6 +835,7 @@ export default function App() {
                                     onFastForward={handleForward}
                                     onAskPineX={() => handleTabChange(Tab.PINEX)}
                                     onBack={() => handleCloseDocumentFixed()}
+                                    onShare={handleShare}
                                 />
                           </main>
                           

@@ -39,7 +39,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ documentType, onClose }) =
     }, [documentType]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[2000] p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="legal-title">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="legal-title">
             <div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-full max-w-3xl h-full max-h-[90%] rounded-2xl shadow-2xl relative flex flex-col border border-gray-200 dark:border-gray-700">
                 
                 {/* Header */}

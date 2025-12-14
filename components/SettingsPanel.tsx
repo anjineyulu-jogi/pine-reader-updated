@@ -440,7 +440,7 @@ Sent via Pine-reader App`
               <p className="opacity-70 text-sm">Version 2.5.0</p>
            </div>
 
-           {/* Changelog - Features List */}
+           {/* Changelog - Features List (Collapsible Button) */}
            <details className={clsx(
               "group p-4 rounded-xl border mt-4 cursor-pointer transition-all-300",
               settings.colorMode === ColorMode.HIGH_CONTRAST
@@ -448,14 +448,14 @@ Sent via Pine-reader App`
                 : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
            )}>
               <summary className="font-bold flex items-center gap-2 list-none select-none">
-                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> Launch Features v2.5
+                 <Sparkles className="w-4 h-4 text-[#FFC107]" /> All v2.5 Features
               </summary>
               <ul className="space-y-2 text-sm opacity-90 list-disc pl-4 mt-3">
-                 <li><strong>AI Insights & Summary:</strong> One-tap summary and keyword extraction powered by Pine-X.</li>
-                 <li><strong>Accessible Table Reading:</strong> Tables are read aloud with full column header context for screen readers.</li>
-                 <li><strong>Seamless Loading:</strong> Progressive loading and caching for instant document access.</li>
-                 <li><strong>Enhanced UI:</strong> Mobile-native control bars for intuitive, bottom-fixed navigation and audio controls.</li>
-                 <li><strong>Voice Control Confirmation:</strong> Auditory feedback for all Pine-X commands ("Go to page 5").</li>
+                 <li><strong>Document Podcast:</strong> Convert any document into a listenable podcast with export options.</li>
+                 <li><strong>Live OCR & Menu Reader:</strong> Real-time OCR customized for reading Indian restaurant menus and hotel info.</li>
+                 <li><strong>One-Tap Summarize:</strong> Instant AI-powered document summaries.</li>
+                 <li><strong>Document Quiz:</strong> Generate interactive quizzes to test your understanding.</li>
+                 <li><strong>Uncompromised Accessibility:</strong> Native screen reader support for headings, links, and structured tables.</li>
                  <li><strong>Web Reader & PDF Export:</strong> Read any URL without clutter and export clean, accessible PDFs.</li>
               </ul>
            </details>
