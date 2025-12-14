@@ -6,7 +6,7 @@ import { THEME_CLASSES, SUPPORTED_LANGUAGES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { getSemanticLookup } from '../services/geminiService';
 import DOMPurify from 'dompurify';
-import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft, Share } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft, Share, Sparkles } from 'lucide-react';
 import { Button } from './ui/Button';
 import { JumpToPageModal } from './JumpToPageModal';
 
@@ -200,7 +200,8 @@ export const Reader: React.FC<ReaderProps> = (props) => {
     setReaderControlMode,
     onAskPineX,
     onBack,
-    onShare
+    onShare,
+    onSummarize
   } = props;
 
   const [scale, setScale] = React.useState(1.0);
@@ -476,7 +477,7 @@ export const Reader: React.FC<ReaderProps> = (props) => {
         
         {/* TOP HEADER */}
         <div className={clsx(
-            "flex items-center p-3 border-b shrink-0 z-20 shadow-sm",
+            "flex items-center p-2 border-b shrink-0 z-20 shadow-sm gap-2",
             isHighContrast ? "bg-black border-yellow-300" : "bg-white/90 dark:bg-gray-900/90 border-gray-200 dark:border-gray-800"
         )}>
             <Button
@@ -487,12 +488,29 @@ export const Reader: React.FC<ReaderProps> = (props) => {
                 icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")} />}
                 className="shrink-0 p-1"
             />
-            <h1 className={clsx(
-                "text-base font-bold truncate flex-1 text-center mx-2", 
-                isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white"
-            )}>
-                {documentName}
-            </h1>
+            
+            {/* CENTER ACTION: One-Tap Summarize */}
+            <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
+                <div className={clsx(
+                    "text-[10px] uppercase font-bold opacity-70 truncate max-w-full mb-0.5",
+                    isHighContrast ? "text-yellow-100" : "text-gray-500 dark:text-gray-400"
+                )}>
+                    {documentName}
+                </div>
+                <button
+                    onClick={() => { triggerHaptic('medium'); onSummarize(); }}
+                    aria-label="Summarize Document"
+                    className={clsx(
+                        "flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all active:scale-95 shadow-sm border",
+                        isHighContrast 
+                            ? "bg-yellow-300 text-black border-white hover:bg-yellow-400" 
+                            : "bg-[#FFC107] text-black border-transparent hover:bg-[#ffca2c]"
+                    )}
+                >
+                    <Sparkles className="w-4 h-4 fill-current" />
+                    <span>Summarize</span>
+                </button>
+            </div>
             
             <Button
                 label="Share"

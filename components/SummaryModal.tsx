@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Sparkles, Loader2, Copy } from 'lucide-react';
+import { X, Sparkles, Loader2, Copy, Volume2, MessageSquareText } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
@@ -13,6 +13,8 @@ interface SummaryModalProps {
   summaryText: string | null;
   isLoading: boolean;
   settings: AppSettings;
+  onReadAloud?: (text: string) => void; // New action
+  onAskFollowUp?: () => void; // New action
 }
 
 export const SummaryModal: React.FC<SummaryModalProps> = ({
@@ -21,6 +23,8 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
   summaryText,
   isLoading,
   settings,
+  onReadAloud,
+  onAskFollowUp
 }) => {
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
 
@@ -36,7 +40,7 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="summary-title"
@@ -44,7 +48,7 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
     >
       <div 
         className={clsx(
-          "w-full max-w-lg max-h-[80vh] rounded-t-2xl sm:rounded-2xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 duration-300 border-2",
+          "w-full max-w-lg max-h-[85vh] rounded-t-3xl sm:rounded-2xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 duration-300 border-2 overflow-hidden",
           isHighContrast 
             ? "bg-black border-yellow-300 text-yellow-300" 
             : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
@@ -52,12 +56,12 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
         onClick={e => e.stopPropagation()}
       >
         <div className={clsx(
-            "flex justify-between items-center p-4 border-b shrink-0",
-            isHighContrast ? "border-yellow-300" : "border-gray-100 dark:border-gray-800"
+            "flex justify-between items-center p-5 border-b shrink-0",
+            isHighContrast ? "border-yellow-300 bg-black" : "border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50"
         )}>
           <h3 id="summary-title" className="text-xl font-bold flex items-center gap-2">
             <Sparkles className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-[#FFC107]")} /> 
-            Smart Summary
+            Document Summary
           </h3>
           <Button
             label="Close"
@@ -68,14 +72,17 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-               <Loader2 className={clsx("w-10 h-10 animate-spin", isHighContrast ? "text-yellow-300" : "text-[#FFC107]")} />
-               <p className="font-medium animate-pulse">Generating concise summary...</p>
+            <div className="flex flex-col items-center justify-center py-12 gap-6 opacity-80">
+               <Loader2 className={clsx("w-12 h-12 animate-spin", isHighContrast ? "text-yellow-300" : "text-[#FFC107]")} />
+               <div className="text-center space-y-2">
+                   <p className="font-bold text-lg">Generating Summary...</p>
+                   <p className="text-sm opacity-70">Identifying key points and conclusions.</p>
+               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
                <div className={clsx(
                    "prose max-w-none text-lg leading-relaxed whitespace-pre-line",
                    isHighContrast ? "prose-invert" : "dark:prose-invert"
@@ -83,23 +90,55 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
                    {summaryText}
                </div>
                
-               <div className="pt-4 flex flex-col gap-4">
-                  <div className="flex justify-end">
-                      <Button 
-                          label="Copy Summary"
-                          variant="secondary"
-                          colorMode={settings.colorMode}
-                          onClick={handleCopy}
-                          icon={<Copy className="w-4 h-4" />}
-                          className="text-sm"
-                      />
-                  </div>
-                  
-                  <AIDisclaimer colorMode={settings.colorMode} />
-               </div>
+               <AIDisclaimer colorMode={settings.colorMode} />
             </div>
           )}
         </div>
+
+        {/* Action Footer */}
+        {!isLoading && summaryText && (
+            <div className={clsx(
+                "p-4 border-t flex flex-col gap-3 shrink-0",
+                isHighContrast ? "border-yellow-300 bg-black" : "border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900"
+            )}>
+                <div className="flex gap-3">
+                    {onReadAloud && (
+                        <Button 
+                            label="Read Aloud"
+                            variant="primary"
+                            colorMode={settings.colorMode}
+                            onClick={() => { triggerHaptic('medium'); onReadAloud(summaryText); }}
+                            className="flex-1 font-bold"
+                            icon={<Volume2 className="w-5 h-5" />}
+                        >
+                            Read Aloud
+                        </Button>
+                    )}
+                    {onAskFollowUp && (
+                        <Button 
+                            label="Ask Pine-X"
+                            variant="secondary"
+                            colorMode={settings.colorMode}
+                            onClick={() => { triggerHaptic('medium'); onAskFollowUp(); }}
+                            className="flex-1 font-bold"
+                            icon={<MessageSquareText className="w-5 h-5" />}
+                        >
+                            Ask Pine-X
+                        </Button>
+                    )}
+                </div>
+                <Button 
+                    label="Copy Text"
+                    variant="ghost"
+                    colorMode={settings.colorMode}
+                    onClick={handleCopy}
+                    className="w-full text-sm font-medium"
+                    icon={<Copy className="w-4 h-4" />}
+                >
+                    Copy Summary to Clipboard
+                </Button>
+            </div>
+        )}
       </div>
     </div>
   );

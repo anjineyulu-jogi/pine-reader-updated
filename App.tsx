@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2, Sparkles, StopCircle, Globe, Languages } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Volume2, Share, Bookmark as BookmarkIcon, FileText, ImageIcon, Play, Pause, SkipBack, SkipForward, Download, Moon, Sun, X, Bot, MoreHorizontal, List, Type, Loader2, Sparkles, StopCircle, Globe, Languages, Camera } from 'lucide-react';
 import clsx from 'clsx';
 import { parsePDF, parseTextFile, parseDocx, parseExcel, getPDFProxy, resumePDFProcessing } from './services/pdfService';
-import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline, summarizeSelection, translateSemanticHtml } from './services/geminiService';
-import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData, getPineXMessages, savePineXMessages, getParsedDocument } from './services/storageService';
+import { transformTextToSemanticHtml, generateSpeech, analyzeImage, optimizeTableForSpeech, fetchWebPageContent, generateDocumentOutline, summarizeSelection, translateSemanticHtml, generateDocumentSummary } from './services/geminiService';
+import { saveRecentFileToStorage, getRecentFilesList, getStoredFile, saveReadingProgress, getReadingProgress, StoredFileMetadata, saveBookmark, getAudioData, saveAudioData, getPineXMessages, savePineXMessages, getParsedDocument, saveParsedDocument } from './services/storageService';
 import { speakSystemMessage, announceAccessibilityChange } from './services/ttsService';
 import { ParsedDocument, AppSettings, ColorMode, Tab, DocumentType, ChatMessage, PineXAction, PageData, ReaderControlMode } from './types';
 import { DEFAULT_SETTINGS, THEME_CLASSES, UI_TRANSLATIONS, SUPPORTED_LANGUAGES } from './constants';
@@ -25,6 +25,7 @@ const PineX = React.lazy(() => import('./components/ChatBot').then(module => ({ 
 const BookmarksView = React.lazy(() => import('./components/BookmarksView').then(module => ({ default: module.BookmarksView })));
 const SettingsPanel = React.lazy(() => import('./components/SettingsPanel').then(module => ({ default: module.SettingsPanel })));
 const WebReaderView = React.lazy(() => import('./components/WebReaderView').then(module => ({ default: module.WebReaderView })));
+const OCRView = React.lazy(() => import('./components/OCRView').then(module => ({ default: module.OCRView })));
 
 // Fallback Loader for Suspense
 const TabLoader = () => (
@@ -369,12 +370,12 @@ export default function App() {
     }
   };
 
-  const handleWebUrl = async (url: string) => {
+  const handleWebUrl = async (url: string, isVisualStory: boolean = false) => {
       setIsProcessing(true);
       setOutline([]);
       try {
           const langName = SUPPORTED_LANGUAGES.find(l => l.code === settings.language)?.name || 'English';
-          const content = await fetchWebPageContent(url, langName);
+          const content = await fetchWebPageContent(url, langName, isVisualStory);
           
           const contentBlob = new Blob([JSON.stringify({ title: content.title, html: content.html, text: content.text, url })], { type: 'application/json' });
           const fileName = `${content.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50)}.webpage`;
@@ -563,9 +564,56 @@ export default function App() {
       }
   };
 
+  // NEW: Full Document Summarization
+  const handleSummarizeDocument = async () => {
+      if (!currentDoc) return;
+      
+      // Check cache first
+      if (currentDoc.metadata.summary) {
+          setSummaryResult(currentDoc.metadata.summary);
+          setIsSummarizing(false); // Just show modal
+          return;
+      }
+
+      setIsSummarizing(true);
+      setSummaryResult(null); 
+      
+      try {
+          // Use full text (truncated if massive)
+          const text = currentDoc.rawText;
+          const summary = await generateDocumentSummary(text);
+          setSummaryResult(summary);
+          
+          // Cache it
+          const updatedDoc = {
+              ...currentDoc,
+              metadata: { ...currentDoc.metadata, summary }
+          };
+          setCurrentDoc(updatedDoc);
+          await saveParsedDocument(updatedDoc, updatedDoc.metadata.name);
+
+      } catch (e) {
+          setSummaryResult("Could not summarize document at this time.");
+      } finally {
+          setIsSummarizing(false);
+      }
+  };
+
+  const handleReadSummaryAloud = async (text: string) => {
+      speakSystemMessage(text); // Basic TTS for summary
+  };
+
+  const handleAskSummaryFollowUp = () => {
+      handleCloseSummary();
+      handleTabChange(Tab.PINEX);
+      setPineXMessages(prev => [...prev, { role: 'model', text: `Here is the summary of your document:\n\n${summaryResult}\n\nWhat would you like to know more about?` }]);
+  };
+
   const handleCloseSummary = () => {
-      setSummaryResult(null);
-      setIsSummarizing(false);
+      if (!isSummarizing) { // Don't close if loading
+        setSummaryResult(null);
+        setIsSummarizing(false);
+      }
   };
 
   // --- AUDIO LOGIC ---
@@ -836,6 +884,8 @@ export default function App() {
                                     onAskPineX={() => handleTabChange(Tab.PINEX)}
                                     onBack={() => handleCloseDocumentFixed()}
                                     onShare={handleShare}
+                                    // New Action
+                                    onSummarize={handleSummarizeDocument}
                                 />
                           </main>
                           
@@ -876,16 +926,28 @@ export default function App() {
                              summaryText={summaryResult} 
                              isLoading={isSummarizing} 
                              settings={settings}
+                             onReadAloud={handleReadSummaryAloud}
+                             onAskFollowUp={handleAskSummaryFollowUp}
                           />
                       </div>
                     );
                 }
                 return <DocumentsView onFileUpload={(e) => { const f = e.target.files?.[0]; if(f) processFile(f); }} onResumeFile={async (id) => { const f = await getStoredFile(id); if(f) processFile(f); }} recentFiles={recentFiles} settings={settings} />;
+            case Tab.OCR:
+                return (
+                  <Suspense fallback={<TabLoader />}>
+                    <OCRView 
+                      settings={settings} 
+                      onBack={() => handleTabChange(Tab.DOCUMENTS)} 
+                    />
+                  </Suspense>
+                );
             case Tab.PINEX:
                 return (
                   <Suspense fallback={<TabLoader />}>
                     <PineX 
                       pageContext={currentDoc ? `Document: ${currentDoc.metadata.name}\nText:\n${currentDoc.pages[currentPageIndex]?.text}` : undefined} 
+                      fullDocText={currentDoc ? currentDoc.rawText : undefined}
                       settings={settings} 
                       isEmbedded={true} 
                       onControlAction={handlePineXControl} 
@@ -958,7 +1020,16 @@ export default function App() {
           {renderContent()}
       </div>
       
-      {!isDocOpen && !showOnboarding && activeTab === Tab.DOCUMENTS && <BottomNav currentTab={activeTab} onTabChange={handleTabChange} colorMode={settings.colorMode} />}
+      {/* 
+         BOTTOM NAVIGATION:
+         Only visible if:
+         1. No document is currently open (isDocOpen is false)
+         2. Onboarding is finished
+         3. The active tab is DOCUMENTS (this creates the Hub-and-Spoke navigation)
+      */}
+      {!isDocOpen && !showOnboarding && activeTab === Tab.DOCUMENTS && (
+          <BottomNav currentTab={activeTab} onTabChange={handleTabChange} colorMode={settings.colorMode} />
+      )}
     
       {showExitToast && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg shadow-xl z-[10000] opacity-90 transition-opacity duration-300">

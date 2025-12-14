@@ -22,6 +22,8 @@ export interface DocumentMetadata {
   isFullyProcessed?: boolean; 
   // NEW: An optional array to store the Table of Contents structure
   tableOfContents?: { title: string; page: number }[]; 
+  // NEW: Cached AI summary
+  summary?: string;
 }
 
 // Replaced generic ContentBlock with Page-based model
@@ -69,6 +71,7 @@ export interface AppSettings {
 // Navigation Types
 export enum Tab {
   DOCUMENTS = 'DOCUMENTS',
+  OCR = 'OCR',
   PINEX = 'PINEX',
   BOOKMARKS = 'BOOKMARKS',
   SETTINGS = 'SETTINGS',
@@ -97,6 +100,7 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   sources?: { title: string; uri: string }[];
+  isQuiz?: boolean; // New: Marks message as part of a quiz flow
 }
 
 // --- SDK REPLACEMENTS ---
@@ -149,6 +153,9 @@ export interface ReaderProps {
   onAskPineX: () => void;
   onBack: () => void;
   onShare: () => void;
+  
+  // NEW: Summarize Feature
+  onSummarize: () => void;
 }
 
 export interface PineXAction {
@@ -161,4 +168,18 @@ export interface PineXAction {
     command?: 'PLAY' | 'PAUSE' | 'FORWARD' | 'BACK' | 'STOP' | 'RESUME';
     text?: string;
   }
+}
+
+// NEW: Interface for Live Session Control
+export interface LiveConnection {
+    disconnect: () => void;
+    sendVideoFrame: (base64Data: string) => void;
+}
+
+// NEW: Quiz Interface
+export interface QuizQuestion {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+    explanation: string;
 }

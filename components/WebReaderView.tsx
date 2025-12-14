@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Globe, Clipboard, ArrowRight, Loader2, AlertCircle, Link2, Layout, Type, ArrowLeft, Languages } from 'lucide-react';
+import { Globe, Clipboard, ArrowRight, Loader2, AlertCircle, Link2, Layout, Type, ArrowLeft, Languages, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AppSettings, ColorMode } from '../types';
 import clsx from 'clsx';
@@ -9,7 +9,7 @@ import { playCompletionSound } from '../services/audioService';
 
 interface WebReaderViewProps {
   settings: AppSettings;
-  onReadUrl: (url: string) => Promise<void>;
+  onReadUrl: (url: string, isVisualStory: boolean) => Promise<void>;
   onBack?: () => void;
   onTranslate: () => void; 
   isTranslating: boolean;
@@ -18,7 +18,9 @@ interface WebReaderViewProps {
 export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUrl, onBack, onTranslate, isTranslating }) => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isVisualStory, setIsVisualStory] = useState(false);
 
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
 
@@ -50,10 +52,24 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
 
     setError(null);
     setIsLoading(true);
+    
+    // UI Feedback Sequence for Visual Story Mode
+    if (isVisualStory || url.includes('/webstories/') || url.includes('/mwebstories/')) {
+        setLoadingStep("Fetching visual content...");
+        // Simulated progress steps for better UX during long process
+        setTimeout(() => setLoadingStep("Rendering Web Story..."), 2000);
+        setTimeout(() => setLoadingStep("Capturing slides (3/15)..."), 4000);
+        setTimeout(() => setLoadingStep("Capturing slides (8/15)..."), 6000);
+        setTimeout(() => setLoadingStep("Analyzing with Vision AI..."), 9000);
+    } else {
+        setLoadingStep("Extracting article content...");
+    }
+    
     triggerHaptic('medium');
 
     try {
-      await onReadUrl(url.trim());
+      await onReadUrl(url.trim(), isVisualStory);
+      
       triggerHaptic('success');
       playCompletionSound();
     } catch (err) {
@@ -129,7 +145,7 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                 "text-lg font-medium max-w-xs mx-auto",
                 isHighContrast ? "text-yellow-100/80" : "text-gray-500 dark:text-gray-400"
             )}>
-                Instantly convert any article or story into an accessible reading format.
+                Instantly convert any article or Web Story into an accessible reading format.
             </p>
         </div>
 
@@ -186,8 +202,42 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                 )}
             </div>
 
+            {/* Visual Story Mode Toggle */}
+            <div 
+                onClick={() => { triggerHaptic('light'); setIsVisualStory(!isVisualStory); }}
+                className={clsx(
+                    "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all active:scale-[0.98]",
+                    isVisualStory 
+                        ? (isHighContrast ? "bg-yellow-900/30 border-yellow-300" : "bg-[#FFC107]/10 border-[#FFC107]") 
+                        : (isHighContrast ? "bg-transparent border-yellow-300/30" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800")
+                )}
+            >
+                <div className={clsx(
+                    "p-3 rounded-full",
+                    isVisualStory 
+                        ? (isHighContrast ? "bg-yellow-300 text-black" : "bg-[#FFC107] text-black")
+                        : (isHighContrast ? "bg-gray-800 text-yellow-300" : "bg-gray-100 dark:bg-gray-800 text-gray-500")
+                )}>
+                    <ImageIcon className="w-6 h-6" />
+                </div>
+                <div className="flex-1 text-left">
+                    <h3 className={clsx("font-bold text-base", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")}>Visual Story Mode</h3>
+                    <p className={clsx("text-xs opacity-80", isHighContrast ? "text-yellow-100" : "text-gray-500 dark:text-gray-400")}>
+                        Extract content from Google Web Stories, slides, and image-heavy pages.
+                    </p>
+                </div>
+                <div className={clsx(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    isVisualStory 
+                        ? (isHighContrast ? "bg-yellow-300 border-yellow-300" : "bg-[#FFC107] border-[#FFC107]")
+                        : "border-gray-400"
+                )}>
+                    {isVisualStory && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
+                </div>
+            </div>
+
             <Button 
-                label={isLoading ? "Analyzing..." : "Read Article"}
+                label={isLoading ? "Processing..." : "Read Article"}
                 type="submit"
                 disabled={isLoading}
                 colorMode={settings.colorMode} 
@@ -199,10 +249,10 @@ export const WebReaderView: React.FC<WebReaderViewProps> = ({ settings, onReadUr
                 )}
             >
                 {isLoading ? (
-                    <>
+                    <div className="flex items-center gap-2">
                         <Loader2 className="w-6 h-6 animate-spin" />
-                        <span>Analyzing Page...</span>
-                    </>
+                        <span className="text-base">{loadingStep || "Analyzing Page..."}</span>
+                    </div>
                 ) : (
                     <>
                         <span>Read Article</span>

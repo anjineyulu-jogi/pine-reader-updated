@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, MessageSquare, Settings, Bookmark, Globe } from 'lucide-react';
+import { Home, MessageCircle, Settings, Bookmark, Globe, Camera } from 'lucide-react';
 import { Tab, ColorMode } from '../types';
 import clsx from 'clsx';
 import { triggerHaptic } from '../services/hapticService';
@@ -22,15 +22,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, c
     zIndex: 9999,
     paddingBottom: 'env(safe-area-inset-bottom)',
     display: 'flex',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-evenly', // evenly spaced for 6 items
     alignItems: 'center',
   };
 
   const isHighContrast = colorMode === ColorMode.HIGH_CONTRAST;
 
+  // Order: Docs, OCR, Pine-X, Bookmarks, Web Reader, Settings
   const tabs = [
     { id: Tab.DOCUMENTS, label: 'Docs', icon: <Home className="w-6 h-6" /> },
-    { id: Tab.PINEX, label: 'Pine-X', icon: <MessageSquare className="w-6 h-6" /> },
+    { id: Tab.OCR, label: 'OCR', icon: <Camera className="w-6 h-6" /> },
+    { id: Tab.PINEX, label: 'Pine-X', icon: <MessageCircle className="w-6 h-6" /> },
     { id: Tab.BOOKMARKS, label: 'Bookmarks', icon: <Bookmark className="w-6 h-6" /> },
     { id: Tab.WEB_READER, label: 'Web', icon: <Globe className="w-6 h-6" /> },
     { id: Tab.SETTINGS, label: 'Settings', icon: <Settings className="w-6 h-6" /> },
@@ -61,24 +63,24 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, c
                     triggerHaptic('light');
                     onTabChange(tab.id);
                 }}
-                className="flex-1 h-full flex flex-col items-center justify-center gap-1 group active:scale-95 transition-transform"
+                className="flex-1 h-full flex flex-col items-center justify-center gap-1 group active:scale-95 transition-transform min-w-0"
               >
                 {/* Icon Container (Pill) */}
                 <div className={clsx(
-                    "w-16 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+                    "w-10 h-8 sm:w-16 rounded-full flex items-center justify-center transition-all duration-300",
                     isActive 
                         ? (isHighContrast ? "bg-yellow-300 text-black" : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200") 
                         : "bg-transparent text-gray-500 dark:text-gray-400 group-hover:bg-gray-100 dark:group-hover:bg-white/5"
                 )}>
                     {React.cloneElement(tab.icon as React.ReactElement<any>, {
                         strokeWidth: isActive ? 2.5 : 2,
-                        className: "w-6 h-6"
+                        className: "w-5 h-5 sm:w-6 sm:h-6"
                     })}
                 </div>
                 
                 {/* Label */}
                 <span className={clsx(
-                    "text-xs font-medium tracking-wide transition-colors",
+                    "text-[10px] sm:text-xs font-medium tracking-wide transition-colors truncate w-full text-center px-1",
                     isActive 
                         ? (isHighContrast ? "text-yellow-300 font-bold" : "text-gray-900 dark:text-gray-100") 
                         : "text-gray-500 dark:text-gray-500"
