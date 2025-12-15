@@ -2,14 +2,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, X, Globe, Brain, Trash2, ChevronLeft, Mic, PhoneOff, ArrowLeft, AlertTriangle, Headphones, HelpCircle, Play, Pause, SkipBack, SkipForward, Download, XCircle, CheckCircle } from 'lucide-react';
 import { Chat, ChatMessage, AppSettings, ColorMode, Content, PineXAction, QuizQuestion } from '../types';
-import { createChatSession, startLiveSession, generateDocumentQuiz, generateSpeech } from '../services/geminiService';
+import { createChatSession, startLiveSession, generateDocumentQuiz, generatePodcastScript, generateMultiSpeakerSpeech } from '../services/geminiService';
 import { Button } from './ui/Button';
 import clsx from 'clsx';
 import { THEME_CLASSES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { PineappleLogo } from './ui/PineappleLogo';
-import { playCompletionSound, playStartSound } from '../services/audioService';
+import { playCompletionSound, playStartSound, base64ToUint8Array, createWavBlob } from '../services/audioService';
 import { AIDisclaimer } from './AIDisclaimer';
+import { PodcastPlayer } from './PodcastPlayer';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 interface PineXProps {
   pageContext?: string;
@@ -47,10 +50,7 @@ export const PineX: React.FC<PineXProps> = ({
   
   // PODCAST STATE
   const [showPodcastPlayer, setShowPodcastPlayer] = useState(false);
-  const [podcastPlaying, setPodcastPlaying] = useState(false);
-  const [podcastAudio, setPodcastAudio] = useState<HTMLAudioElement | null>(null);
   const [podcastBlob, setPodcastBlob] = useState<Blob | null>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
 
   // QUIZ STATE
   const [quizActive, setQuizActive] = useState(false);
@@ -90,10 +90,6 @@ export const PineX: React.FC<PineXProps> = ({
   useEffect(() => {
       return () => {
           if (stopLiveSessionRef.current) stopLiveSessionRef.current();
-          if (podcastAudio) {
-              podcastAudio.pause();
-              podcastAudio.src = '';
-          }
       };
   }, []);
 
@@ -108,84 +104,83 @@ export const PineX: React.FC<PineXProps> = ({
       onUpdateMessages([initialMsg]);
       setQuizActive(false);
       setShowPodcastPlayer(false);
+      setPodcastBlob(null);
   };
 
   // --- PODCAST FEATURE ---
   const startPodcast = async () => {
       if (!fullDocText) return;
       triggerHaptic('medium');
-      setShowPodcastPlayer(true);
-      setPodcastPlaying(false);
+      setShowPodcastPlayer(false);
+      setIsLoading(true);
       
-      onUpdateMessages([...messages, { role: 'model', text: "Generating podcast narration for your document. This may take a moment..." }]);
+      onUpdateMessages([...messages, { role: 'model', text: "Drafting an engaging podcast script with Alex & Maya. This will take a moment..." }]);
       
       try {
-          // Use a concise chunk for the "demo" podcast to be fast, or handle streaming.
-          // For stability, we fetch a significant chunk (e.g., first 5000 chars) as a single narrative.
-          const textToSpeak = `Podcast Summary of your document: ${fullDocText.substring(0, 5000)}`;
-          const audioBase64 = await generateSpeech(textToSpeak, 'Zephyr'); // Zephyr is good for storytelling
+          // 1. Generate Script
+          const script = await generatePodcastScript(fullDocText);
           
-          if (audioBase64) {
-              const binaryString = atob(audioBase64);
-              const len = binaryString.length;
-              const bytes = new Uint8Array(len);
-              for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-              
-              const blob = new Blob([bytes], { type: 'audio/mp3' });
-              const url = URL.createObjectURL(blob);
-              const audio = new Audio(url);
-              
-              audio.onended = () => setPodcastPlaying(false);
-              setPodcastAudio(audio);
-              setPodcastBlob(blob);
-              setPodcastPlaying(true);
-              audio.play();
+          if (!script) {
+               throw new Error("Script generation failed");
+          }
+
+          onUpdateMessages([...messages, { role: 'model', text: "Script ready! Recording the conversation now..." }]);
+          
+          // 2. Multi-Speaker TTS (Chunked)
+          const audioBytes = await generateMultiSpeakerSpeech(script);
+
+          if (audioBytes) {
+              const wavBlob = createWavBlob(audioBytes, 24000); // 24kHz matches Gemini Flash TTS
+              setPodcastBlob(wavBlob);
+              setShowPodcastPlayer(true);
               onUpdateMessages([...messages, { role: 'model', text: "Podcast ready! Playing now." }]);
+          } else {
+              throw new Error("No audio data received");
           }
       } catch (e) {
           console.error("Podcast gen failed", e);
           onUpdateMessages([...messages, { role: 'model', text: "Sorry, I couldn't generate the podcast right now." }]);
           setShowPodcastPlayer(false);
+      } finally {
+          setIsLoading(false);
       }
   };
 
-  const togglePodcastPlay = () => {
-      if (!podcastAudio) return;
-      if (podcastPlaying) {
-          podcastAudio.pause();
-      } else {
-          podcastAudio.play();
-      }
-      setPodcastPlaying(!podcastPlaying);
-  };
-
-  const seekPodcast = (seconds: number) => {
-      if (!podcastAudio) return;
-      podcastAudio.currentTime = Math.max(0, Math.min(podcastAudio.duration, podcastAudio.currentTime + seconds));
-  };
-
-  const changePodcastSpeed = () => {
-      if (!podcastAudio) return;
-      const speeds = [1.0, 1.25, 1.5];
-      const nextIdx = (speeds.indexOf(playbackSpeed) + 1) % speeds.length;
-      const nextSpeed = speeds[nextIdx];
-      setPlaybackSpeed(nextSpeed);
-      podcastAudio.playbackRate = nextSpeed;
-  };
-
-  const exportPodcast = async () => {
+  const handleExportPodcast = async () => {
       if (!podcastBlob) return;
-      if (navigator.share) {
-          const file = new File([podcastBlob], "podcast.mp3", { type: 'audio/mp3' });
-          if (navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: "Document Podcast" });
-          }
-      } else {
-          // Fallback download
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(podcastBlob);
-          a.download = "pine_reader_podcast.mp3";
-          a.click();
+      
+      try {
+          // Convert Blob to Base64 for saving
+          const reader = new FileReader();
+          reader.readAsDataURL(podcastBlob);
+          reader.onloadend = async () => {
+              const base64data = reader.result as string;
+              // Strip metadata prefix if present (data:audio/wav;base64,)
+              const base64Content = base64data.split(',')[1];
+              const filename = `pine_podcast_${Date.now()}.wav`;
+
+              if (Capacitor.getPlatform() === 'web') {
+                  // Direct Browser Download
+                  const a = document.createElement('a');
+                  a.href = base64data;
+                  a.download = filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  alert("Podcast downloaded!");
+              } else {
+                  // Android/iOS Filesystem Write
+                  await Filesystem.writeFile({
+                      path: filename,
+                      data: base64Content,
+                      directory: Directory.Documents, // Safe, accessible directory
+                  });
+                  alert(`Saved to Documents: ${filename}`);
+              }
+          };
+      } catch (e) {
+          console.error("Export failed", e);
+          alert("Could not save file.");
       }
   };
 
@@ -486,27 +481,13 @@ export const PineX: React.FC<PineXProps> = ({
         )}
         
         {/* INLINE PODCAST PLAYER */}
-        {showPodcastPlayer && (
-            <div className={clsx(
-                "sticky bottom-2 z-10 w-full p-4 rounded-xl border-2 shadow-xl animate-in slide-in-from-bottom-5",
-                isHighContrast ? "bg-black border-yellow-300 text-yellow-300" : "bg-white dark:bg-gray-900 border-[#FFC107]"
-            )}>
-                <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold flex items-center gap-2"><Headphones className="w-5 h-5" /> Document Podcast</span>
-                    <button onClick={() => setShowPodcastPlayer(false)}><X className="w-5 h-5" /></button>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                    <button onClick={() => seekPodcast(-10)} className="p-2"><SkipBack className="w-6 h-6" /></button>
-                    <button onClick={togglePodcastPlay} className={clsx("p-3 rounded-full", isHighContrast ? "bg-yellow-300 text-black" : "bg-[#FFC107] text-black")}>
-                        {podcastPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
-                    </button>
-                    <button onClick={() => seekPodcast(10)} className="p-2"><SkipForward className="w-6 h-6" /></button>
-                </div>
-                <div className="flex justify-between items-center mt-2 text-xs font-bold">
-                    <button onClick={changePodcastSpeed} className="px-2 py-1 rounded border border-current">{playbackSpeed}x Speed</button>
-                    <button onClick={exportPodcast} className="px-2 py-1 rounded border border-current flex items-center gap-1"><Download className="w-3 h-3" /> Export MP3</button>
-                </div>
-            </div>
+        {showPodcastPlayer && podcastBlob && (
+            <PodcastPlayer 
+                audioBlob={podcastBlob} 
+                onClose={() => setShowPodcastPlayer(false)} 
+                onExport={handleExportPodcast}
+                settings={settings}
+            />
         )}
 
         <div className="mb-4 px-2">
@@ -532,7 +513,7 @@ export const PineX: React.FC<PineXProps> = ({
                           isHighContrast ? "border-yellow-300 text-yellow-300 bg-black" : "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800"
                       )}
                   >
-                      <Headphones className="w-4 h-4" /> Listen as Podcast
+                      <Headphones className="w-4 h-4" /> Listen to Podcast
                   </button>
                   <button 
                       onClick={startQuiz}

@@ -75,7 +75,8 @@ export enum Tab {
   PINEX = 'PINEX',
   BOOKMARKS = 'BOOKMARKS',
   SETTINGS = 'SETTINGS',
-  WEB_READER = 'WEB_READER'
+  WEB_READER = 'WEB_READER',
+  MORE = 'MORE' // New tab for tools
 }
 
 // NEW: Defines the mode of the bottom control bar

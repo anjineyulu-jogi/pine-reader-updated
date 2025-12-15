@@ -1,59 +1,39 @@
 
-import { GoogleGenAI, Modality, Type, FunctionDeclaration, LiveServerMessage } from "@google/genai";
-import { AppSettings, Chat, ChatMessage, PineXOptions, ReadingLevel, Content, LiveConnection, QuizQuestion } from '../types';
+import { GoogleGenAI, Modality, Type, FunctionDeclaration, LiveServerMessage, Chat } from "@google/genai";
+import { AppSettings, ChatMessage, PineXOptions, ReadingLevel, Content, LiveConnection, QuizQuestion } from '../types';
 import { PINEX_SYSTEM_INSTRUCTION_BASE } from '../constants';
+import { base64ToUint8Array } from './audioService';
 
-// Initialize the SDK directly with the Environment Variable
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- CONSTANTS: EXACT PROMPTS ---
-
-const VISION_OCR_PROMPT = `
-You are a precise accessibility OCR tool for Telugu Web Stories.
-Input: Sequential screenshots from a slideshow about actor Daggubati Venkatesh's fitness and food secrets.
-
-Output only this format:
-
-Slide 1:
-Telugu text: [copy ALL visible text exactly, preserve script]
-Image description: [brief, accessible description of main photo]
-
-Slide 2:
-...
-
-Rules:
-- Extract ONLY visible text — verbatim, no translation, no fixes.
-- Never add, summarize, or hallucinate.
-- If no text: "No visible text"
-- If unclear: "Unclear text"
-No other commentary.
-`;
-
-const SEMANTIC_CONVERSION_PROMPT_BASE = `
-You are an expert accessibility engine. Convert the provided raw text/narrative into perfect, semantic HTML5. 
-
-RULES:
-1. Use <article>, <h1> for title, <h2> for slide/section titles.
-2. For narrative text, use <p>.
-3. For images described in the text, use <figure> and <figcaption> or <img alt="..."> if appropriate.
-4. For tables, use <table> with role="grid", scope="col/row".
-5. CRITICAL: Preserve ALL Indic language scripts (Telugu, Hindi, etc.) exactly as they appear. Do NOT transliterate or translate unless explicitly asked.
-6. Ensure high contrast and readability.
-`;
-
+// Optimized for Indian Users (Multi-lingual + Mixed Script)
 const LIVE_VISION_SYSTEM_INSTRUCTION = `
-You are Pine-X, an intelligent vision assistant for blind and low-vision users. You are receiving a live video stream and audio.
-Your goal is to be the user's eyes.
+You are Pine-X, an intelligent vision assistant for blind users in India.
+Your Mode: AUTO-READ & DESCRIBE.
 
-1. **READ EVERYTHING**: Immediately read any visible text, signs, menus, or labels aloud. For tables or menus, read row-by-row to maintain structure.
-2. **DESCRIBE SCENES**: If no text is prominent, describe the environment, obstacles, and objects clearly.
-3. **BE RESPONSIVE**: Listen to user questions and answer instantly based on what you see.
-4. **BE SPECIFIC**: Mention colors, approximate distances, and layout details if relevant.
-5. **ACCESSIBILITY**: Speak clearly, at a moderate pace. Prioritize safety and navigational cues.
-6. **FORMAT**: Keep responses concise and spoken-style.
+1. **INDIAN CONTEXT & LANGUAGE**:
+   - **Detect the script** visible in the view (Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, or English).
+   - **Speak in the detected language** with a natural, native accent.
+   - **Mixed Script**: If you see English + Indic text (e.g., a menu or sign), read it naturally as an Indian speaker would (e.g., English brand names with Indian English accent, local text natively).
+   - **Currency**: Always read prices as "Rupees" (e.g., "150 Rupees").
+   - **Numbers**: Read phone numbers digit-by-digit or in natural groups (e.g., "98-480...").
+
+2. **READ IMMEDIATELY**: As soon as you see text, read it aloud. Do not wait.
+
+3. **VISUAL DESCRIPTION**: Describe the scene accessibly. Mention colors, shapes, and packaging (e.g., "Red medicine strip", "Green veg mark", "Auto-rickshaw meter").
+
+4. **ENTITIES & ACTIONS**: 
+   - If you see a phone number, say exactly: "Phone found: [number]".
+   - If you see an address, say exactly: "Address found: [address]".
+   - If you see a price, mention it clearly.
+
+5. **GUIDANCE**: 
+   - If blurry/dark, politely ask: "Hold steady" or "Turn on light".
+   - If text is cut off, ask: "Move camera left/right".
+
+6. **NO REPETITION**: Do not repeat text you just read unless the user asks or the view changes.
 `;
 
-// --- Pine-X Control Tools Definition ---
 export const PineXToolDeclarations: FunctionDeclaration[] = [
     {
         name: 'execute_app_action',
@@ -101,8 +81,6 @@ export const PineXToolDeclarations: FunctionDeclaration[] = [
     },
 ];
 
-// --- LIVE API IMPLEMENTATION ---
-
 interface LiveSessionCallbacks {
     onConnect: () => void;
     onDisconnect: () => void;
@@ -120,16 +98,6 @@ function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
     return output.buffer;
 }
 
-function base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-}
-
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
     let binary = '';
     const bytes = new Uint8Array(buffer);
@@ -142,7 +110,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 export const startLiveSession = async (
     callbacks: LiveSessionCallbacks,
-    voiceName: string = 'Zephyr',
+    voiceName: string = 'Kore', // Default to Kore (Balanced) for Indian English context
     context: string = '',
     useVisionPrompt: boolean = false
 ): Promise<LiveConnection> => {
@@ -186,6 +154,7 @@ export const startLiveSession = async (
                 systemInstruction: systemInstruction,
                 outputAudioTranscription: {}, 
                 inputAudioTranscription: {}, 
+                tools: useVisionPrompt ? [] : [{ functionDeclarations: PineXToolDeclarations }]
             },
             callbacks: {
                 onopen: async () => {
@@ -272,454 +241,222 @@ export const startLiveSession = async (
     }
 };
 
-export const transformTextToSemanticHtml = async (text: string, readingLevel: ReadingLevel = ReadingLevel.NORMAL): Promise<string> => {
-  try {
-    let systemInstruction = SEMANTIC_CONVERSION_PROMPT_BASE;
-
-    if (readingLevel === ReadingLevel.SIMPLIFIED) {
-        systemInstruction = "The user has requested the content be rewritten using a 5th-grade reading level. Simplify complex vocabulary, shorten sentences, and maintain only the core concepts, but strictly adhere to the semantic HTML output rules. " + systemInstruction;
-    } else if (readingLevel === ReadingLevel.ACADEMIC) {
-        systemInstruction = "The user has requested a scholarly, formal reading level. Ensure all language is precise, dense with information, and uses advanced vocabulary. Strictly adhere to the semantic HTML output rules. " + systemInstruction;
-    }
-
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: systemInstruction,
-            temperature: 0.1,
-        },
-        contents: `RAW TEXT TO CONVERT:\n${text.substring(0, 30000)}`
-    });
-
-    let html = response.text || '';
-    html = html.replace(/```html/g, '').replace(/```/g, '');
-    return html;
-  } catch (error) {
-    console.error("HTML conversion failed:", error);
-    return text.split('\n').map(line => `<p>${line}</p>`).join('');
-  }
-};
-
-export const generateDocumentOutline = async (text: string): Promise<string[]> => {
+export const analyzeFrozenFrame = async (base64Image: string): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Generate a hierarchical Table of Contents (Outline) for this document text.
-            Return ONLY a JSON array of strings, where each string is a heading.
-            Example: ["1. Introduction", "2. Methodology", "2.1 Participants"]
-            
-            TEXT: ${text.substring(0, 30000)}`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                }
-            }
-        });
-        const jsonStr = response.text;
-        return jsonStr ? JSON.parse(jsonStr) : [];
-    } catch (error) {
-        return [];
-    }
-};
-
-export const summarizeSelection = async (text: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Summarize the following text concisely using bullet points. Focus on the main ideas and key takeaways.\n\nTEXT:\n${text.substring(0, 15000)}`,
-        });
-        return response.text || "Could not generate summary.";
-    } catch (error) {
-        throw new Error("Failed to summarize text.");
-    }
-};
-
-// --- NEW: ONE-TAP DOCUMENT SUMMARIZER ---
-export const generateDocumentSummary = async (text: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Provide a concise summary of the following document in 4-6 bullet points. 
-            Focus on main ideas, key facts, and conclusions. 
-            Use clear, accessible language. 
-            Preserve original language if non-English (e.g., Telugu, Hindi).
-            
-            DOCUMENT TEXT:
-            ${text.substring(0, 40000)}`, // Limit context to avoid overload
-        });
-        return response.text || "Could not generate summary.";
-    } catch (error) {
-        throw new Error("Failed to generate document summary.");
-    }
-};
-
-export const getSemanticLookup = async (text: string, context: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            config: {
-                systemInstruction: `You are an instant definition and context tool. Based on the surrounding document context, provide a single, concise sentence that defines the selected phrase. Prioritize clarity and brevity. Return only the sentence.`,
-                temperature: 0.1,
-            },
-            contents: [
-                { role: 'user', parts: [{ text: `DOCUMENT CONTEXT: ${context.substring(0, 5000)}` }] },
-                { role: 'user', parts: [{ text: `SELECTED PHRASE: ${text}` }] }
-            ]
-        });
-        return response.text?.trim() || "Could not retrieve definition.";
-    } catch (error) {
-        return "Could not retrieve definition.";
-    }
-};
-
-export const translateSemanticHtml = async (htmlContent: string, targetLanguage: string): Promise<{title: string, html: string}> => {
-    try {
-        const prompt = `Translate the following HTML content, including all text within tags (h1, p, li, td, etc.), into ${targetLanguage}. Preserve all HTML structure, tags, and accessibility attributes exactly as they are. Only translate the visible text. Return ONLY the translated HTML content (do not wrap it in a code block or add any conversational text).`;
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            config: { systemInstruction: prompt, temperature: 0.1 },
-            contents: htmlContent
-        });
-        let translatedHtml = response.text || '';
-        translatedHtml = translatedHtml.replace(/```html/g, '').replace(/```/g, '');
-        const titleResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            config: { systemInstruction: `Extract and translate the main title from the following HTML into ${targetLanguage}. Return only the translated title text.`, temperature: 0.1 },
-            contents: htmlContent.substring(0, 2000)
-        });
-        return {
-            title: titleResponse.text?.trim() || 'Translated Article',
-            html: translatedHtml.trim(),
-        };
-    } catch (error) {
-        throw new Error("Could not translate content.");
-    }
-};
-
-export const optimizeTableForSpeech = (html: string): string => {
-    try {
-        if (!html) return "";
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        if (!doc || !doc.body) return html.replace(/<[^>]*>/g, ' ');
-        const tables = doc.querySelectorAll('table');
-        if (tables.length === 0) return doc.body.innerText || "";
-        tables.forEach((table, index) => {
-            const rows = Array.from(table.querySelectorAll('tr'));
-            if (rows.length === 0) return;
-            const headerCells = Array.from(rows[0].querySelectorAll('th, td'));
-            const headers = headerCells.map(c => c.textContent?.trim() || '');
-            const colCount = headers.length;
-            const rowCount = rows.length;
-            let narrative = `\n[Table ${index + 1} starting with ${rowCount} rows and ${colCount} columns. `;
-            if (headers.length > 0) narrative += `Columns: ${headers.join(', ')}. `;
-            narrative += "]\n";
-            for (let i = 1; i < rows.length; i++) {
-                const cells = Array.from(rows[i].querySelectorAll('td, th'));
-                narrative += `Row ${i}: `;
-                cells.forEach((cell, cellIndex) => {
-                    const header = headers[cellIndex] ? `${headers[cellIndex]}: ` : '';
-                    narrative += `${header}${cell.textContent?.trim() || 'Empty'}, `;
-                });
-                narrative += ".\n";
-            }
-            narrative += "[End of Table]\n";
-            const p = doc.createElement('p');
-            p.textContent = narrative;
-            table.replaceWith(p);
-        });
-        return doc.body.innerText || ""; 
-    } catch (e) {
-        return html ? html.replace(/<[^>]*>/g, ' ') : ""; 
-    }
-};
-
-export const createChatSession = (options: PineXOptions): Chat => {
-    let systemInstruction = PINEX_SYSTEM_INSTRUCTION_BASE;
-    if (options.context) {
-        systemInstruction += `\n\nCURRENT DOCUMENT CONTEXT:\n${options.context}`;
-    }
-    const config: any = {
-        systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: PineXToolDeclarations }]
-    };
-    if (options.enableSearch) {
-        config.tools.push({ googleSearch: {} });
-    }
-    const chatHistory = options.history?.map(h => ({ role: h.role, parts: h.parts }));
-    const chatSession = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: config,
-        history: chatHistory
-    });
-    return {
-        sendMessage: async (params: { message: string }) => {
-            const result = await chatSession.sendMessage({ message: params.message });
-            return {
-                text: result.text,
-                candidates: result.candidates,
-                functionCalls: result.functionCalls
-            };
-        }
-    };
-};
-
-export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string | undefined> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: text.substring(0, 2000) }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } } },
-            },
-        });
-        return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    } catch (error) { throw error; }
-};
-
-export const analyzeImage = async (base64Image: string, mimeType: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3-pro-preview', 
             contents: {
                 parts: [
-                    { inlineData: { mimeType: mimeType, data: base64Image } },
-                    { text: "Analyze this document/image. Extract all text, headings, tables. Return Semantic HTML5. Preserve original language." }
+                    { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+                    { text: "Analyze this image in high detail for a blind user in India. 1. Read ALL text (Indic and English). 2. Describe objects/products. 3. Look for expiry dates, prices (Rupees), and safety warnings. 4. Speak naturally in Indian English." }
                 ]
             }
         });
-        let html = response.text || '';
-        html = html.replace(/```html/g, '').replace(/```/g, '');
-        return html;
-    } catch (error) { return `<p>Error analyzing image content.</p>`; }
-};
-
-// --- NEW FEATURE: GENERATE QUIZ ---
-export const generateDocumentQuiz = async (documentText: string): Promise<QuizQuestion[]> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Generate 8-12 multiple choice questions based on the following text.
-            Text: ${documentText.substring(0, 40000)}
-            
-            Return ONLY a JSON array with this structure:
-            [
-              {
-                "question": "Question text here?",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correctAnswer": "Option A",
-                "explanation": "Why this is correct."
-              }
-            ]`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            question: { type: Type.STRING },
-                            options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            correctAnswer: { type: Type.STRING },
-                            explanation: { type: Type.STRING },
-                        }
-                    }
-                }
-            }
-        });
-        const jsonStr = response.text || "[]";
-        return JSON.parse(jsonStr);
-    } catch (error) {
-        console.error("Quiz gen error", error);
-        return [];
-    }
-};
-
-/**
- * CAPTURE WEB STORY SCREENSHOTS
- * Renders HTML into a hidden container and uses html2canvas to capture slides.
- * Simulates a vertical scroll to capture multiple parts of a Web Story.
- */
-const captureWebStoryScreenshots = async (htmlContent: string, maxSlides: number = 15): Promise<string[]> => {
-    try {
-        const { default: html2canvas } = await import('html2canvas');
-        
-        // 1. Create a hidden container with typical mobile dimensions
-        const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '375px'; // Standard mobile width
-        container.style.backgroundColor = '#ffffff';
-        container.style.zIndex = '-1';
-        container.innerHTML = htmlContent;
-        
-        // Ensure images inside have absolute paths if possible (heuristic)
-        // Note: Real proxies would handle this better.
-        const images = container.querySelectorAll('img');
-        images.forEach(img => {
-            img.crossOrigin = "Anonymous"; // Attempt CORS
-        });
-
-        document.body.appendChild(container);
-
-        // Wait for resources to load essentially
-        await new Promise(r => setTimeout(r, 1500));
-
-        const screenshots: string[] = [];
-        const viewportHeight = 667;
-        const totalHeight = container.scrollHeight;
-        
-        // 2. Loop to capture "slides"
-        // We capture every 'viewportHeight' pixels
-        for (let scrollY = 0; scrollY < totalHeight && screenshots.length < maxSlides; scrollY += viewportHeight) {
-            
-            // "Scroll" the container
-            container.style.transform = `translateY(-${scrollY}px)`;
-            
-            // Small delay for render update
-            await new Promise(r => setTimeout(r, 200));
-
-            try {
-                const canvas = await html2canvas(container, {
-                    useCORS: true,
-                    logging: false,
-                    width: 375,
-                    height: viewportHeight,
-                    y: scrollY, 
-                    scale: 1, 
-                    backgroundColor: '#ffffff'
-                });
-
-                // Get base64 without prefix
-                const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-                
-                // Basic check to avoid capturing completely empty white slides
-                if (base64.length > 3000) {
-                    screenshots.push(base64);
-                }
-            } catch (err) {
-                console.warn("Frame capture failed", err);
-            }
-        }
-
-        document.body.removeChild(container);
-        return screenshots;
-
+        return response.text || "Analysis failed.";
     } catch (e) {
-        console.warn("Screenshot process failed:", e);
-        return [];
+        console.error("Freeze analysis failed", e);
+        return "Could not analyze the image.";
     }
 };
 
-/**
- * fetchWebPageContent
- * UPGRADED: Includes logic for Web Story detection and Vision extraction.
- */
-export const fetchWebPageContent = async (
-    url: string, 
-    preferredLanguage: string = 'English',
-    isVisualStoryForce: boolean = false
-): Promise<{title: string, html: string, text: string}> => {
-    try {
-        let rawContent = "";
-        let title = "Web Article";
-        
-        // --- STEP 1: FETCH HTML SOURCE ---
-        // We use Gemini Search Grounding to get the source code or text.
-        // This acts as our "Proxy".
-        let fetchedHtml = "";
-        
-        const isStoryUrl = url.includes('/webstories/') || url.includes('/mwebstories/') || url.includes('amp_stories');
-        const useVisionMode = isVisualStoryForce || isStoryUrl;
+export const transformTextToSemanticHtml = async (text: string, readingLevel: ReadingLevel = ReadingLevel.NORMAL): Promise<string> => {
+    let prompt = "Convert the following text to semantic HTML5. Use appropriate tags like <h1>, <p>, <ul>, <table>.";
+    if (readingLevel === ReadingLevel.SIMPLIFIED) prompt += " Simplify the content for a 5th grade reading level.";
+    if (readingLevel === ReadingLevel.ACADEMIC) prompt += " Use academic tone.";
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `${prompt}\n\nTEXT:\n${text.substring(0, 30000)}`
+    });
+    return response.text || "";
+};
 
-        // Fetch command
-        const searchResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Fetch the raw HTML source code for: ${url}. 
-            Return ONLY the HTML code block. Do not converse.`,
-            config: { tools: [{ googleSearch: {} }] }
-        });
-        fetchedHtml = searchResponse.text?.replace(/```html/g, '').replace(/```/g, '') || "";
-
-        // --- STEP 2: VISION MODE (For Stories) ---
-        if (useVisionMode && fetchedHtml.length > 50) {
-            // A. Capture Slides
-            const screenshots = await captureWebStoryScreenshots(fetchedHtml);
-            
-            if (screenshots.length > 0) {
-                // B. Analyze with Gemini Vision
-                const visionParts = screenshots.map(b64 => ({
-                    inlineData: { mimeType: 'image/jpeg', data: b64 }
-                }));
-                
-                // Attach the strict prompt
-                visionParts.push({ text: VISION_OCR_PROMPT } as any);
-
-                const visionResponse = await ai.models.generateContent({
-                    model: 'gemini-3-pro-preview', // Best model for OCR/Vision
-                    contents: { parts: visionParts }
-                });
-
-                rawContent = visionResponse.text || "No text extracted from slides.";
-                title = "Visual Web Story";
-            } else {
-                // Fallback if capturing failed
-                rawContent = "Could not visually render story. Using text fallback.\n" + fetchedHtml.substring(0, 2000);
+export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: { parts: [{ text: text.substring(0, 3000) }] },
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName } }
             }
-        } else {
-            // --- STEP 3: STANDARD MODE ---
-            const extractionPrompt = `
-                Act as an expert accessible web scraper. Target URL: ${url}
-                YOUR GOAL: Extract the Full Title and the Full Article Text/Narrative.
-                MODE: STANDARD ARTICLE
-                - Extract the main article content (headline, body, subheadings).
-                - Remove navigation, footers, ads, and sidebars.
-                OUTPUT FORMAT: JSON with "title" and "rawContent".
-            `;
-            
-            const textResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: extractionPrompt,
-                config: { tools: [{ googleSearch: {} }] }
-            });
-            
-            const jsonMatch = textResponse.text?.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try {
-                    const data = JSON.parse(jsonMatch[0]);
-                    rawContent = data.rawContent || data.plainText || "";
-                    title = data.title || "Web Article";
-                } catch(e) {}
-            }
-            if (!rawContent) rawContent = textResponse.text || "";
         }
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+};
 
-        // --- STEP 4: SEMANTIC HTML CONVERSION ---
-        const semanticResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `CONVERT THIS NARRATIVE TO HTML:\n\n${rawContent}`,
-            config: {
-                systemInstruction: SEMANTIC_CONVERSION_PROMPT_BASE + 
-                (preferredLanguage !== 'English' ? `\nTarget Language: ${preferredLanguage} (if translation requested, otherwise keep original).` : ""),
-                temperature: 0.1
-            }
-        });
+export const analyzeImage = async (base64Data: string, mimeType: string): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+            parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: "Describe this image in semantic HTML format." }
+            ]
+        }
+    });
+    return response.text || "<p>No description available.</p>";
+};
 
-        let finalHtml = semanticResponse.text || '';
-        finalHtml = finalHtml.replace(/```html/g, '').replace(/```/g, '');
+export const optimizeTableForSpeech = (html: string): string => {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || "";
+};
 
-        return {
-            title: title,
-            html: finalHtml || "<p>No content extracted.</p>",
-            text: rawContent || "No content."
-        };
-
-    } catch (error) {
-        console.error("Web fetch failed:", error);
-        throw new Error("Could not fetch web page. Try Visual Mode or a different URL.");
+export const fetchWebPageContent = async (url: string, targetLanguage: string, isVisualStory: boolean): Promise<{ title: string, html: string, text: string }> => {
+    const prompt = `Fetch content from ${url}. Return a JSON with title, contentHtml, and plainText. Translate to ${targetLanguage} if needed.`;
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: {
+            tools: [{ googleSearch: {} }]
+        }
+    });
+    
+    const text = response.text || "";
+    try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+            return JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+        }
+    } catch (e) {
+        // Fallback
     }
+    return { title: "Web Page", html: `<p>${text}</p>`, text: text };
+};
+
+export const generateDocumentOutline = async (text: string): Promise<string[]> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Generate a table of contents for this text. Return JSON array of strings. Text: ${text.substring(0, 30000)}`,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+            }
+        }
+    });
+    return JSON.parse(response.text || "[]");
+};
+
+export const summarizeSelection = async (text: string): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Summarize this text selection: ${text}`
+    });
+    return response.text || "";
+};
+
+export const translateSemanticHtml = async (html: string, targetLanguage: string): Promise<{ title: string, html: string }> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Translate this HTML to ${targetLanguage}. Return JSON { "title": string, "html": string }. HTML: ${html.substring(0, 30000)}`,
+         config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    html: { type: Type.STRING }
+                },
+                required: ['title', 'html']
+            }
+        }
+    });
+    return JSON.parse(response.text || '{"title":"", "html":""}');
+};
+
+export const generateDocumentSummary = async (text: string): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Summarize this document: ${text.substring(0, 30000)}`
+    });
+    return response.text || "";
+};
+
+export const createChatSession = (options: PineXOptions): Chat => {
+    // Explicitly define tools array with 'any' type to prevent TS inference issues
+    // when conditionally pushing mutually exclusive tool types.
+    const tools: any[] = [];
+    
+    if (options.enableSearch) {
+        tools.push({ googleSearch: {} });
+    } else {
+        // Only add app control tools if not using Google Search (mutually exclusive)
+        tools.push({ functionDeclarations: PineXToolDeclarations });
+    }
+
+    return ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+            systemInstruction: PINEX_SYSTEM_INSTRUCTION_BASE + (options.context ? `\n\nCONTEXT:\n${options.context}` : ""),
+            tools: tools.length > 0 ? tools : undefined,
+            thinkingConfig: options.enableThinking ? { thinkingConfig: { thinkingBudget: 1024 } } : undefined,
+        },
+        history: options.history
+    });
+};
+
+export const generateDocumentQuiz = async (text: string): Promise<QuizQuestion[]> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Create a quiz from this text: ${text.substring(0, 20000)}`,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        question: { type: Type.STRING },
+                        options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        correctAnswer: { type: Type.STRING },
+                        explanation: { type: Type.STRING }
+                    },
+                    required: ['question', 'options', 'correctAnswer', 'explanation']
+                }
+            }
+        }
+    });
+    return JSON.parse(response.text || "[]");
+};
+
+export const generatePodcastScript = async (text: string): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Write a podcast script discussing this text. Use speakers "Alex" and "Maya". Format as "Speaker: Text". Text: ${text.substring(0, 30000)}`
+    });
+    return response.text || "";
+};
+
+export const generateMultiSpeakerSpeech = async (script: string): Promise<Uint8Array | null> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-preview-tts',
+        contents: { parts: [{ text: script }] },
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+                multiSpeakerVoiceConfig: {
+                    speakerVoiceConfigs: [
+                        { speaker: 'Alex', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Fenrir' } } },
+                        { speaker: 'Maya', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } }
+                    ]
+                }
+            }
+        }
+    });
+    const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (data) return base64ToUint8Array(data);
+    return null;
+};
+
+export const getSemanticLookup = async (selection: string, context: string): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Define "${selection}" in context: ${context.substring(0, 500)}. Max 20 words.`
+    });
+    return response.text || "";
 };

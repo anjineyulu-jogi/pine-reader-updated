@@ -84,45 +84,46 @@ Sent via Pine-reader App`
           <h3 className="font-bold text-xl flex items-center gap-3">
               <Eye className="w-6 h-6 text-[#FFC107]" /> Display Theme
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Changed to vertical stack (grid-cols-1) to ensure buttons are never squished in one line */}
+          <div className="grid grid-cols-1 gap-3">
               <button
                   aria-pressed={settings.colorMode === ColorMode.LIGHT}
                   onClick={() => handleChange('colorMode', ColorMode.LIGHT)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-center gap-3 transition-all-300 active:scale-95 touch-target",
                       settings.colorMode === ColorMode.LIGHT 
                         ? "border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-200" 
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
                   <Sun className="w-6 h-6" />
-                  <span className="font-bold">Light</span>
+                  <span className="font-bold">Light Mode</span>
               </button>
               <button
                   aria-pressed={settings.colorMode === ColorMode.DARK}
                   onClick={() => handleChange('colorMode', ColorMode.DARK)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-center gap-3 transition-all-300 active:scale-95 touch-target",
                       settings.colorMode === ColorMode.DARK 
                         ? "border-blue-500 bg-gray-900 text-white ring-2 ring-blue-900" 
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
                   <Moon className="w-6 h-6" />
-                  <span className="font-bold">Dark</span>
+                  <span className="font-bold">Dark Mode</span>
               </button>
               <button
                   aria-pressed={settings.colorMode === ColorMode.HIGH_CONTRAST}
                   onClick={() => handleChange('colorMode', ColorMode.HIGH_CONTRAST)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-center gap-3 transition-all-300 active:scale-95 touch-target",
                       settings.colorMode === ColorMode.HIGH_CONTRAST 
                         ? "border-yellow-300 bg-black text-yellow-300 ring-2 ring-yellow-600" 
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
                   <Eye className="w-6 h-6" />
-                  <span className="font-bold">Contrast</span>
+                  <span className="font-bold">High Contrast</span>
               </button>
           </div>
       </section>
@@ -174,12 +175,12 @@ Sent via Pine-reader App`
               <BookOpen className="w-6 h-6 text-[#FFC107]" /> Reading Level
           </h3>
           <p className="text-sm opacity-70 font-medium">Adapt the document text difficulty.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3">
               <button
                   aria-pressed={settings.readingLevel === ReadingLevel.SIMPLIFIED}
                   onClick={() => handleChange('readingLevel', ReadingLevel.SIMPLIFIED)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-between gap-2 transition-all-300 active:scale-95 touch-target",
                       settings.readingLevel === ReadingLevel.SIMPLIFIED 
                         ? (settings.colorMode === ColorMode.HIGH_CONTRAST 
                             ? "border-yellow-300 bg-yellow-900 text-yellow-300"
@@ -187,14 +188,17 @@ Sent via Pine-reader App`
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
-                  <Coffee className="w-6 h-6" />
-                  <span className="font-bold">Simple</span>
+                  <div className="flex items-center gap-3">
+                    <Coffee className="w-6 h-6" />
+                    <span className="font-bold">Simple</span>
+                  </div>
+                  <span className="text-xs opacity-70">5th Grade Level</span>
               </button>
               <button
                   aria-pressed={settings.readingLevel === ReadingLevel.NORMAL}
                   onClick={() => handleChange('readingLevel', ReadingLevel.NORMAL)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-between gap-2 transition-all-300 active:scale-95 touch-target",
                       settings.readingLevel === ReadingLevel.NORMAL
                         ? (settings.colorMode === ColorMode.HIGH_CONTRAST
                             ? "border-yellow-300 bg-yellow-900 text-yellow-300"
@@ -202,14 +206,17 @@ Sent via Pine-reader App`
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
-                  <BookOpen className="w-6 h-6" />
-                  <span className="font-bold">Normal</span>
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-6 h-6" />
+                    <span className="font-bold">Normal</span>
+                  </div>
+                  <span className="text-xs opacity-70">Standard</span>
               </button>
               <button
                   aria-pressed={settings.readingLevel === ReadingLevel.ACADEMIC}
                   onClick={() => handleChange('readingLevel', ReadingLevel.ACADEMIC)}
                   className={clsx(
-                      "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all-300 active:scale-95",
+                      "p-4 rounded-xl border-2 flex flex-row items-center justify-between gap-2 transition-all-300 active:scale-95 touch-target",
                       settings.readingLevel === ReadingLevel.ACADEMIC
                         ? (settings.colorMode === ColorMode.HIGH_CONTRAST
                             ? "border-yellow-300 bg-yellow-900 text-yellow-300"
@@ -217,8 +224,11 @@ Sent via Pine-reader App`
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   )}
               >
-                  <GraduationCap className="w-6 h-6" />
-                  <span className="font-bold">Academic</span>
+                  <div className="flex items-center gap-3">
+                    <GraduationCap className="w-6 h-6" />
+                    <span className="font-bold">Academic</span>
+                  </div>
+                  <span className="text-xs opacity-70">Scholarly</span>
               </button>
           </div>
       </section>
@@ -236,7 +246,7 @@ Sent via Pine-reader App`
                 value={settings.language || 'en'}
                 onChange={(e) => handleChange('language', e.target.value)}
                 className={clsx(
-                  "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow",
+                  "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow min-h-[56px]",
                   settings.colorMode === ColorMode.HIGH_CONTRAST 
                     ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500"
                     : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-[#FFC107] focus:ring-[#FFC107]/20"
@@ -264,7 +274,7 @@ Sent via Pine-reader App`
                         value={settings.voiceName || 'Kore'}
                         onChange={(e) => handleChange('voiceName', e.target.value)}
                         className={clsx(
-                          "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow",
+                          "w-full p-4 rounded-xl border appearance-none text-lg font-medium outline-none focus:ring-2 transition-shadow min-h-[56px]",
                           settings.colorMode === ColorMode.HIGH_CONTRAST 
                             ? "bg-black border-yellow-300 text-yellow-300 focus:ring-yellow-500"
                             : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-[#FFC107] focus:ring-[#FFC107]/20"
@@ -288,7 +298,7 @@ Sent via Pine-reader App`
                                 aria-pressed={settings.seekDuration === seconds}
                                 onClick={() => handleChange('seekDuration', seconds)}
                                 className={clsx(
-                                    "p-3 rounded-xl border-2 font-bold text-center transition-all",
+                                    "p-3 rounded-xl border-2 font-bold text-center transition-all touch-target",
                                     settings.seekDuration === seconds
                                         ? (settings.colorMode === ColorMode.HIGH_CONTRAST 
                                             ? "bg-yellow-300 text-black border-white" 

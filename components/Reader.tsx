@@ -6,50 +6,48 @@ import { THEME_CLASSES, SUPPORTED_LANGUAGES } from '../constants';
 import { triggerHaptic } from '../services/hapticService';
 import { getSemanticLookup } from '../services/geminiService';
 import DOMPurify from 'dompurify';
-import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft, Share, Sparkles } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, MoreHorizontal, MessageSquareText, X, Moon, Sun, Volume2, Bookmark as BookmarkIcon, FileText, Play, Pause, SkipBack, SkipForward, Search, ArrowLeft, Share, Sparkles, Lightbulb } from 'lucide-react';
 import { Button } from './ui/Button';
 import { JumpToPageModal } from './JumpToPageModal';
 
 // --- CONTROL BARS COMPONENTS ---
 
 const DocumentControlsBar: React.FC<ReaderProps> = ({ 
-    onPageChange, setReaderControlMode, onJumpToPage, settings, page, pdfProxy 
+    onPageChange, setReaderControlMode, onJumpToPage, settings, page, pdfProxy, onSummarize 
 }) => {
     const [showJump, setShowJump] = useState(false);
-    const iconClass = "w-6 h-6";
-    // Base button style for bottom bar items
-    const buttonClass = clsx(
-        "flex flex-col items-center justify-center p-2 text-xs flex-1 gap-1 transition-colors active:scale-95",
-        settings.colorMode === ColorMode.HIGH_CONTRAST ? "hover:bg-yellow-900/50" : "hover:bg-black/5 dark:hover:bg-white/10"
+    const iconClass = "w-7 h-7";
+    
+    // Standardized Button Style for Bar
+    const BarButton = ({ icon, label, onClick, highlight = false }: any) => (
+        <button 
+            onClick={() => { triggerHaptic('light'); onClick(); }} 
+            className={clsx(
+                "flex flex-col items-center justify-center h-full flex-1 gap-1 transition-all active:scale-90 rounded-2xl mx-1",
+                highlight 
+                    ? (settings.colorMode === ColorMode.HIGH_CONTRAST ? "bg-yellow-300 text-black font-bold" : "bg-[#FFC107]/20 text-black dark:text-[#FFC107]") 
+                    : (settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300 hover:bg-yellow-900/30" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5")
+            )}
+            aria-label={label}
+        >
+            {icon}
+            <span className="text-[10px] font-bold tracking-wide text-center leading-tight">{label}</span>
+        </button>
     );
     
     return (
         <>
             <div className={clsx(
-                "flex justify-around items-center border-t py-2 h-[80px] pb-safe backdrop-blur-md",
+                "flex justify-between items-center px-2 py-2 min-h-[90px] h-auto pb-safe backdrop-blur-xl border-t z-50",
                 settings.colorMode === ColorMode.HIGH_CONTRAST 
-                    ? "bg-black border-t-2 border-yellow-300 text-yellow-300" 
-                    : "bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                    ? "bg-black border-yellow-300" 
+                    : "bg-white/95 dark:bg-[#151515]/95 border-gray-100 dark:border-gray-800 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]"
             )}>
-                <button onClick={() => { triggerHaptic('light'); onPageChange(-1); }} className={buttonClass} aria-label="Previous Page">
-                    <ChevronLeft className={iconClass} />
-                    <span className="font-medium">Prev</span>
-                </button>
-                
-                <button onClick={() => { triggerHaptic('light'); setShowJump(true); }} className={buttonClass} aria-label="Jump to Page">
-                    <Search className={iconClass} />
-                    <span className="font-medium">Jump To</span>
-                </button>
-                
-                <button onClick={() => { triggerHaptic('light'); onPageChange(1); }} className={buttonClass} aria-label="Next Page">
-                    <ChevronRight className={iconClass} />
-                    <span className="font-medium">Next</span>
-                </button>
-                
-                <button onClick={() => { triggerHaptic('light'); setReaderControlMode(ReaderControlMode.MORE_OPTIONS); }} className={buttonClass} aria-label="More Options">
-                    <MoreHorizontal className={iconClass} />
-                    <span className="font-medium">More</span>
-                </button>
+                <BarButton icon={<ChevronLeft className={iconClass} />} label="Prev" onClick={() => onPageChange(-1)} />
+                <BarButton icon={<Sparkles className={iconClass} />} label="Summary" onClick={onSummarize} highlight />
+                <BarButton icon={<Search className={iconClass} />} label="Jump" onClick={() => setShowJump(true)} />
+                <BarButton icon={<ChevronRight className={iconClass} />} label="Next" onClick={() => onPageChange(1)} />
+                <BarButton icon={<MoreHorizontal className={iconClass} />} label="More" onClick={() => setReaderControlMode(ReaderControlMode.MORE_OPTIONS)} />
             </div>
 
             <JumpToPageModal 
@@ -57,7 +55,7 @@ const DocumentControlsBar: React.FC<ReaderProps> = ({
                 onClose={() => setShowJump(false)}
                 onJump={onJumpToPage}
                 currentPage={page?.pageNumber ? page.pageNumber - 1 : 0}
-                totalPages={pdfProxy?.numPages || 1} // Fallback
+                totalPages={pdfProxy?.numPages || 1} 
                 settings={settings}
             />
         </>
@@ -65,66 +63,49 @@ const DocumentControlsBar: React.FC<ReaderProps> = ({
 };
 
 const MoreOptionsBar: React.FC<ReaderProps> = ({ 
-    onToggleNightMode, onToggleViewMode, onToggleTTS, setReaderControlMode, settings, onBookmark, documentName, page
+    onToggleNightMode, onToggleViewMode, onToggleTTS, setReaderControlMode, settings, onBookmark, page, documentName
 }) => {
-    const iconClass = "w-6 h-6";
-    const buttonClass = clsx(
-        "flex flex-col items-center justify-center p-2 text-xs flex-1 gap-1 transition-colors active:scale-95",
-        settings.colorMode === ColorMode.HIGH_CONTRAST ? "hover:bg-yellow-900/50" : "hover:bg-black/5 dark:hover:bg-white/10"
+    const iconClass = "w-7 h-7";
+    const BarButton = ({ icon, label, onClick }: any) => (
+        <button 
+            onClick={() => { triggerHaptic('medium'); onClick(); }} 
+            className={clsx(
+                "flex flex-col items-center justify-center h-full flex-1 gap-1 transition-all active:scale-90 rounded-2xl mx-1",
+                settings.colorMode === ColorMode.HIGH_CONTRAST ? "text-yellow-300 hover:bg-yellow-900/30" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+            )}
+            aria-label={label}
+        >
+            {icon}
+            <span className="text-[10px] font-bold tracking-wide text-center leading-tight">{label}</span>
+        </button>
     );
-    
-    const nightModeText = settings.colorMode === ColorMode.DARK ? "Light" : "Night"; 
-    
-    // Quick Bookmark action from menu
-    const handleQuickBookmark = () => {
-        if(page) {
-            triggerHaptic('success');
-            onBookmark({
-                id: Date.now().toString(),
-                fileId: documentName,
-                fileName: documentName,
-                text: `Page ${page.pageNumber}`,
-                type: 'TEXT',
-                pageNumber: page.pageNumber,
-                timestamp: Date.now(),
-                summary: "Bookmarked via menu"
-            });
-            setReaderControlMode(ReaderControlMode.DOCUMENT_CONTROLS);
-        }
-    };
 
     return (
         <div className={clsx(
-            "flex justify-around items-center border-t py-2 h-[80px] pb-safe backdrop-blur-md animate-in slide-in-from-bottom duration-200",
+            "flex justify-between items-center px-2 py-2 min-h-[90px] h-auto pb-safe backdrop-blur-xl border-t z-50 animate-in slide-in-from-bottom duration-200",
             settings.colorMode === ColorMode.HIGH_CONTRAST 
-                ? "bg-black border-t-2 border-yellow-300 text-yellow-300" 
-                : "bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                ? "bg-black border-yellow-300" 
+                : "bg-white/95 dark:bg-[#151515]/95 border-gray-100 dark:border-gray-800"
         )}>
-            
-            <button onClick={() => { triggerHaptic('medium'); onToggleViewMode(); }} className={buttonClass} aria-label="Toggle View Mode">
-                <FileText className={iconClass} />
-                <span className="font-medium">{settings.viewMode === 'accessible' ? "Original" : "Text"}</span>
-            </button>
-
-            <button onClick={() => { triggerHaptic('medium'); onToggleNightMode(); }} className={buttonClass} aria-label={`${nightModeText} Mode`}>
-                {settings.colorMode === ColorMode.DARK ? <Sun className={iconClass} /> : <Moon className={iconClass} />}
-                <span className="font-medium">{nightModeText}</span>
-            </button>
-
-            <button onClick={() => { triggerHaptic('medium'); onToggleTTS(); }} className={buttonClass} aria-label="Read Aloud">
-                <Volume2 className={iconClass} />
-                <span className="font-medium">Read</span>
-            </button>
-
-            <button onClick={handleQuickBookmark} className={buttonClass} aria-label="Add Bookmark">
-                <BookmarkIcon className={iconClass} />
-                <span className="font-medium">Mark</span>
-            </button>
-
-            <button onClick={() => { triggerHaptic('light'); setReaderControlMode(ReaderControlMode.DOCUMENT_CONTROLS); }} className={buttonClass} aria-label="Close Options">
-                <X className={iconClass} />
-                <span className="font-medium">Close</span>
-            </button>
+            <BarButton icon={<FileText className={iconClass} />} label={settings.viewMode === 'accessible' ? "Original" : "Text"} onClick={onToggleViewMode} />
+            <BarButton icon={settings.colorMode === ColorMode.DARK ? <Sun className={iconClass} /> : <Moon className={iconClass} />} label={settings.colorMode === ColorMode.DARK ? "Light" : "Night"} onClick={onToggleNightMode} />
+            <BarButton icon={<Volume2 className={iconClass} />} label="Read" onClick={onToggleTTS} />
+            <BarButton icon={<BookmarkIcon className={iconClass} />} label="Mark" onClick={() => { 
+                if(page) {
+                    onBookmark({
+                        id: Date.now().toString(),
+                        fileId: documentName,
+                        fileName: documentName,
+                        text: `Page ${page.pageNumber}`,
+                        type: 'TEXT',
+                        pageNumber: page.pageNumber,
+                        timestamp: Date.now(),
+                        summary: "Bookmarked via menu"
+                    });
+                    setReaderControlMode(ReaderControlMode.DOCUMENT_CONTROLS);
+                }
+            }} />
+            <BarButton icon={<X className={iconClass} />} label="Close" onClick={() => setReaderControlMode(ReaderControlMode.DOCUMENT_CONTROLS)} />
         </div>
     );
 };
@@ -132,50 +113,38 @@ const MoreOptionsBar: React.FC<ReaderProps> = ({
 const TTSPlayerBar: React.FC<ReaderProps> = ({ 
     onPageChange, onToggleTTS, isSpeaking, setReaderControlMode, onRewind, onFastForward, settings 
 }) => {
-    const iconClass = "w-6 h-6";
-    const buttonClass = clsx(
-        "flex flex-col items-center justify-center p-2 text-xs flex-1 gap-1 transition-colors active:scale-95",
-        settings.colorMode === ColorMode.HIGH_CONTRAST ? "hover:bg-yellow-900/50" : "hover:bg-black/5 dark:hover:bg-white/10"
-    );
-    
-    // Default to 10s if not set
+    const iconClass = "w-8 h-8";
     const seekSeconds = settings.seekDuration || 10;
 
     return (
         <div className={clsx(
-            "flex justify-around items-center border-t py-2 h-[80px] pb-safe backdrop-blur-md animate-in slide-in-from-bottom duration-200",
+            "flex justify-evenly items-center px-4 py-2 min-h-[90px] h-auto pb-safe backdrop-blur-xl border-t z-50 animate-in slide-in-from-bottom duration-200",
             settings.colorMode === ColorMode.HIGH_CONTRAST 
-                ? "bg-black border-t-2 border-yellow-300 text-yellow-300" 
-                : "bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                ? "bg-black border-yellow-300 text-yellow-300" 
+                : "bg-white/95 dark:bg-[#151515]/95 border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-200"
         )}>
-            <button onClick={() => { triggerHaptic('light'); onPageChange(-1); }} className={buttonClass} aria-label="Previous Page">
-                <ChevronLeft className={iconClass} />
-                <span className="font-medium">Prev</span>
+            <button onClick={() => { triggerHaptic('light'); onPageChange(-1); }} className="p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-6 h-6" /></button>
+            <button onClick={() => { triggerHaptic('medium'); onRewind(seekSeconds); }} className="p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><SkipBack className="w-7 h-7" /></button>
+            
+            <button 
+                onClick={() => { triggerHaptic('medium'); onToggleTTS(); }} 
+                className={clsx(
+                    "w-16 h-16 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform",
+                    settings.colorMode === ColorMode.HIGH_CONTRAST ? "bg-yellow-300 text-black" : "bg-[#FFC107] text-black"
+                )}
+            >
+                {isSpeaking ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
             </button>
             
-            <button onClick={() => { triggerHaptic('medium'); onRewind(seekSeconds); }} className={buttonClass} aria-label={`Rewind ${seekSeconds} seconds`}>
-                <SkipBack className={iconClass} />
-                <span className="font-medium">-{seekSeconds}s</span>
-            </button>
-
-            <button onClick={() => { triggerHaptic('medium'); onToggleTTS(); }} className={clsx(buttonClass, !isSpeaking && "text-blue-600 dark:text-blue-400")} aria-label={isSpeaking ? "Pause" : "Play"}>
-                {isSpeaking ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
-                <span className="font-medium">{isSpeaking ? "Pause" : "Play"}</span>
-            </button>
+            <button onClick={() => { triggerHaptic('medium'); onFastForward(seekSeconds); }} className="p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><SkipForward className="w-7 h-7" /></button>
+            <button onClick={() => { triggerHaptic('light'); onPageChange(1); }} className="p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><ChevronRight className="w-6 h-6" /></button>
             
-            <button onClick={() => { triggerHaptic('medium'); onFastForward(seekSeconds); }} className={buttonClass} aria-label={`Fast Forward ${seekSeconds} seconds`}>
-                <SkipForward className={iconClass} />
-                <span className="font-medium">+{seekSeconds}s</span>
-            </button>
-            
-            <button onClick={() => { triggerHaptic('light'); onPageChange(1); }} className={buttonClass} aria-label="Next Page">
-                <ChevronRight className={iconClass} />
-                <span className="font-medium">Next</span>
-            </button>
-
-            <button onClick={() => { triggerHaptic('light'); setReaderControlMode(ReaderControlMode.MORE_OPTIONS); }} className={buttonClass} aria-label="Close Player">
-                <X className={iconClass} />
-                <span className="font-medium">Close</span>
+            <button 
+                onClick={() => setReaderControlMode(ReaderControlMode.MORE_OPTIONS)} 
+                className="absolute top-0 right-2 p-2 rounded-full opacity-50 hover:opacity-100"
+                aria-label="Close Player"
+            >
+                <X className="w-5 h-5" />
             </button>
         </div>
     );
@@ -215,31 +184,24 @@ export const Reader: React.FC<ReaderProps> = (props) => {
   const isLongPressActiveRef = useRef(false);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<any>(null);
-  
-  // 3-Finger Gesture State
   const last3FingerTapTime = useRef(0);
-
-  // Semantic Lookup State
   const [lookupResult, setLookupResult] = useState<{ text: string, x: number, y: number } | null>(null);
 
   const isPageReady = page && page.semanticHtml && page.text;
   const isHighContrast = settings.colorMode === ColorMode.HIGH_CONTRAST;
 
-  // Sanitize HTML Content
   const sanitizedHtml = React.useMemo(() => {
       if (!isPageReady) return '';
       const rawHtml = page?.semanticHtml || `<p>${page?.text}</p>`;
       return DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
   }, [page?.semanticHtml, page?.text, isPageReady]);
 
-  // Accessibility: Focus sync
   useEffect(() => {
      if (semanticRef.current) {
          semanticRef.current.focus({ preventScroll: true });
      }
   }, [page?.pageNumber, isPageReady]);
 
-  // Jump to Text (TOC) Effect
   useEffect(() => {
       if (jumpToText && semanticRef.current && isPageReady) {
           const elements = semanticRef.current.querySelectorAll('h1, h2, h3, h4, h5, h6, p');
@@ -261,7 +223,6 @@ export const Reader: React.FC<ReaderProps> = (props) => {
       return langConfig ? { fontFamily: `'${langConfig.font}', 'Roboto', sans-serif` } : {};
   }, [settings.language]);
 
-  // Render Visual Layer (Canvas)
   useEffect(() => {
       if (viewMode === 'original' && pdfProxy && page && canvasRef.current && isPageReady) {
           const renderPage = async () => {
@@ -293,7 +254,7 @@ export const Reader: React.FC<ReaderProps> = (props) => {
       }
   }, [page, pdfProxy, scale, viewMode, settings.colorMode, isPageReady]);
 
-  // --- SELECTION LOGIC ---
+  // Gestures
   const handleSelection = () => {
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 10 && onTextSelection) {
@@ -303,10 +264,8 @@ export const Reader: React.FC<ReaderProps> = (props) => {
     }
   };
 
-  // --- GESTURE LOGIC ---
   const announceStatus = (text: string) => {
       triggerHaptic('medium');
-      // Using generic synthesis for now, ideally hook into app announcer
       if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);
@@ -328,27 +287,17 @@ export const Reader: React.FC<ReaderProps> = (props) => {
 
       if (e.touches.length === 1) {
           const touch = e.touches[0];
-          touchStartRef.current = {
-              x: touch.clientX,
-              y: touch.clientY,
-              time: Date.now()
-          };
+          touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
           isLongPressActiveRef.current = false;
-
           longPressTimerRef.current = setTimeout(() => {
               isLongPressActiveRef.current = true;
               handleBookmarkGesture(e.target as HTMLElement);
           }, settings.longPressDuration || 3000);
-
           tapCountRef.current += 1;
           clearTimeout(tapTimerRef.current);
-          
           tapTimerRef.current = setTimeout(() => {
               if (tapCountRef.current === 2) {
-                 if (onDoubleTap) {
-                     triggerHaptic('medium');
-                     onDoubleTap();
-                 }
+                 if (onDoubleTap) { triggerHaptic('medium'); onDoubleTap(); }
               }
               tapCountRef.current = 0;
           }, 400); 
@@ -360,31 +309,20 @@ export const Reader: React.FC<ReaderProps> = (props) => {
       const touch = e.touches[0];
       const diffX = Math.abs(touch.clientX - touchStartRef.current.x);
       const diffY = Math.abs(touch.clientY - touchStartRef.current.y);
-
-      if (diffX > 10 || diffY > 10) {
-          clearTimeout(longPressTimerRef.current);
-      }
+      if (diffX > 10 || diffY > 10) clearTimeout(longPressTimerRef.current);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
       clearTimeout(longPressTimerRef.current);
       handleSelection();
-
       if (!touchStartRef.current || isLongPressActiveRef.current) return;
-
       const touch = e.changedTouches[0];
       const diffX = touch.clientX - touchStartRef.current.x;
       const diffY = touch.clientY - touchStartRef.current.y;
       const timeDiff = Date.now() - touchStartRef.current.time;
-
       if (Math.abs(diffX) > 50 && timeDiff < 500 && Math.abs(diffX) > Math.abs(diffY) * 2) {
-          if (diffX > 0) {
-              onPageChange(-1);
-              announceStatus(`Page ${page!.pageNumber - 1}`);
-          } else {
-              onPageChange(1);
-              announceStatus(`Page ${page!.pageNumber + 1}`);
-          }
+          if (diffX > 0) { onPageChange(-1); announceStatus(`Page ${page!.pageNumber - 1}`); } 
+          else { onPageChange(1); announceStatus(`Page ${page!.pageNumber + 1}`); }
       }
       touchStartRef.current = null;
   };
@@ -401,28 +339,14 @@ export const Reader: React.FC<ReaderProps> = (props) => {
       if (!page) return;
       let text = target.innerText;
       let type: Bookmark['type'] = 'TEXT';
-
       let el: HTMLElement | null = target;
       while (el && el !== containerRef.current) {
-          if (el.tagName.match(/^H[1-6]$/)) {
-              type = 'HEADING';
-              text = el.innerText;
-              break;
-          }
-          if (el.tagName === 'A') {
-              type = 'LINK';
-              text = el.innerText;
-              break;
-          }
-          if (el.tagName === 'TABLE') {
-              type = 'TABLE';
-              text = "Table on this page"; 
-              break;
-          }
+          if (el.tagName.match(/^H[1-6]$/)) { type = 'HEADING'; text = el.innerText; break; }
+          if (el.tagName === 'A') { type = 'LINK'; text = el.innerText; break; }
+          if (el.tagName === 'TABLE') { type = 'TABLE'; text = "Table on this page"; break; }
           el = el.parentElement;
       }
-
-      const bookmark: Bookmark = {
+      onBookmark({
           id: Date.now().toString(),
           fileId: documentName,
           fileName: documentName,
@@ -430,13 +354,10 @@ export const Reader: React.FC<ReaderProps> = (props) => {
           type: type,
           pageNumber: page.pageNumber,
           timestamp: Date.now()
-      };
-
-      onBookmark(bookmark);
+      });
       announceStatus("Bookmarked");
   };
 
-  // --- SEMANTIC LOOKUP ---
   const handleSemanticLookup = async (selectedText: string, clientX: number, clientY: number) => {
     if (!selectedText.trim()) return;
     setLookupResult({ text: 'Thinking...', x: clientX, y: clientY });
@@ -451,78 +372,59 @@ export const Reader: React.FC<ReaderProps> = (props) => {
   useEffect(() => {
     const contentElement = semanticRef.current;
     if (!contentElement) return;
-
     const handleMouseUp = (e: MouseEvent) => {
         setLookupResult(null); 
         const selection = window.getSelection();
         const selectedText = selection?.toString().trim();
-        
         if (selectedText && selectedText.length > 0 && selectedText.length < 50 && contentElement.contains(selection.focusNode)) {
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top; 
-            handleSemanticLookup(selectedText, x, y);
+            handleSemanticLookup(selectedText, rect.left + rect.width / 2, rect.top);
         }
     };
-    
     contentElement.addEventListener('mouseup', handleMouseUp);
-    return () => {
-        contentElement.removeEventListener('mouseup', handleMouseUp);
-    };
+    return () => { contentElement.removeEventListener('mouseup', handleMouseUp); };
   }, [page?.pageNumber, isPageReady]);
 
   return (
     <div className={clsx("h-full flex flex-col relative", THEME_CLASSES[settings.colorMode])}>
         
-        {/* TOP HEADER */}
+        {/* NEW MODERN HEADER */}
         <div className={clsx(
-            "flex items-center p-2 border-b shrink-0 z-20 shadow-sm gap-2",
-            isHighContrast ? "bg-black border-yellow-300" : "bg-white/90 dark:bg-gray-900/90 border-gray-200 dark:border-gray-800"
+            "flex items-center justify-between p-4 border-b shrink-0 z-20 shadow-sm",
+            isHighContrast ? "bg-black border-yellow-300" : "bg-white/95 dark:bg-[#151515]/95 border-gray-100 dark:border-gray-800 backdrop-blur-md"
         )}>
-            <Button
-                label="Back"
-                onClick={onBack}
-                colorMode={settings.colorMode}
-                variant="ghost"
-                icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")} />}
-                className="shrink-0 p-1"
-            />
-            
-            {/* CENTER ACTION: One-Tap Summarize */}
-            <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
-                <div className={clsx(
-                    "text-[10px] uppercase font-bold opacity-70 truncate max-w-full mb-0.5",
-                    isHighContrast ? "text-yellow-100" : "text-gray-500 dark:text-gray-400"
+            <div className="flex items-center gap-4 flex-1">
+                <Button
+                    label="Back"
+                    onClick={onBack}
+                    colorMode={settings.colorMode}
+                    variant="ghost"
+                    icon={<ArrowLeft className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")} />}
+                    className="shrink-0 p-2 rounded-full"
+                />
+                
+                <h1 className={clsx(
+                    "text-lg font-bold truncate max-w-[200px]",
+                    isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white"
                 )}>
                     {documentName}
-                </div>
-                <button
-                    onClick={() => { triggerHaptic('medium'); onSummarize(); }}
-                    aria-label="Summarize Document"
-                    className={clsx(
-                        "flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm transition-all active:scale-95 shadow-sm border",
-                        isHighContrast 
-                            ? "bg-yellow-300 text-black border-white hover:bg-yellow-400" 
-                            : "bg-[#FFC107] text-black border-transparent hover:bg-[#ffca2c]"
-                    )}
-                >
-                    <Sparkles className="w-4 h-4 fill-current" />
-                    <span>Summarize</span>
-                </button>
+                </h1>
             </div>
             
-            <Button
-                label="Share"
-                onClick={onShare}
-                colorMode={settings.colorMode}
-                variant="ghost"
-                icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-900 dark:text-white")} />}
-                className="shrink-0 p-1"
-            />
+            <div className="flex items-center gap-2">
+                <Button
+                    label="Share"
+                    onClick={onShare}
+                    colorMode={settings.colorMode}
+                    variant="ghost"
+                    icon={<Share className={clsx("w-6 h-6", isHighContrast ? "text-yellow-300" : "text-gray-600 dark:text-gray-300")} />}
+                    className="shrink-0 p-2 rounded-full"
+                />
+            </div>
         </div>
 
-        {/* PAGE CONTENT AREA */}
+        {/* PAGE CONTENT */}
         <div 
             ref={containerRef}
             className="flex-1 overflow-y-auto relative outline-none touch-pan-y"
@@ -537,19 +439,18 @@ export const Reader: React.FC<ReaderProps> = (props) => {
                     <p className="text-lg font-medium animate-pulse">Analyzing structure...</p>
                 </div>
             ) : (
-                <div className="p-4 min-h-full pb-32">
+                <div className="p-4 sm:p-6 min-h-full pb-32">
                     {!isPageReady ? (
                         <div className="flex items-center justify-center h-[50vh] flex-col p-10 text-center opacity-70">
                             <Loader2 className="w-8 h-8 animate-spin mb-4" />
                             <p className="text-lg font-medium">Loading Page {page?.pageNumber}...</p>
-                            <p className="text-sm mt-2">Pine-X is enhancing this section.</p>
                         </div>
                     ) : (
                         <>
                             {lookupResult && (
                                 <div 
                                     className={clsx(
-                                        "fixed p-4 rounded-xl shadow-2xl max-w-xs z-50 transition-opacity duration-300 animate-in fade-in zoom-in-95",
+                                        "fixed p-4 rounded-3xl shadow-2xl max-w-xs z-50 transition-opacity duration-300 animate-in fade-in zoom-in-95",
                                         settings.colorMode === ColorMode.HIGH_CONTRAST 
                                             ? "bg-yellow-300 text-black font-bold border-4 border-black" 
                                             : "bg-[#FFC107] text-black font-medium border border-black/10"
@@ -570,21 +471,18 @@ export const Reader: React.FC<ReaderProps> = (props) => {
                                 ref={semanticRef}
                                 tabIndex={0}
                                 className={clsx(
-                                    "semantic-content prose max-w-none focus:outline-none select-text mt-4",
+                                    "semantic-content prose max-w-none focus:outline-none select-text mt-2 mx-auto",
                                     settings.colorMode === ColorMode.HIGH_CONTRAST ? "high-contrast" : "dark:prose-invert",
                                     viewMode === 'original' && "sr-only"
                                 )}
-                                style={{ 
-                                    fontSize: `${settings.fontSize}rem`,
-                                    ...fontStyle 
-                                }}
+                                style={{ fontSize: `${settings.fontSize}rem`, ...fontStyle }}
                                 dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                                 aria-label={`Page ${page?.pageNumber} content`}
                             />
 
                             {viewMode === 'original' && (
                                 <div className="mt-4 flex justify-center">
-                                    <canvas ref={canvasRef} className="shadow-lg max-w-full" />
+                                    <canvas ref={canvasRef} className="shadow-lg max-w-full rounded-xl" />
                                 </div>
                             )}
                         </>
@@ -593,34 +491,26 @@ export const Reader: React.FC<ReaderProps> = (props) => {
             )}
         </div>
         
-        {/* BOTTOM CONTROL BAR CONTAINER */}
+        {/* BOTTOM CONTROLS */}
         <div className="absolute bottom-0 left-0 right-0 z-30">
-            {readerControlMode === ReaderControlMode.DOCUMENT_CONTROLS && (
-                <DocumentControlsBar {...props} />
-            )}
-
-            {readerControlMode === ReaderControlMode.MORE_OPTIONS && (
-                <MoreOptionsBar {...props} />
-            )}
-
-            {readerControlMode === ReaderControlMode.TTS_PLAYER && (
-                <TTSPlayerBar {...props} />
-            )}
+            {readerControlMode === ReaderControlMode.DOCUMENT_CONTROLS && <DocumentControlsBar {...props} />}
+            {readerControlMode === ReaderControlMode.MORE_OPTIONS && <MoreOptionsBar {...props} />}
+            {readerControlMode === ReaderControlMode.TTS_PLAYER && <TTSPlayerBar {...props} />}
         </div>
         
-        {/* Floating Ask Pine-X Button */}
+        {/* Floating Ask Pine-X Button - Moved to Safe Area */}
         {readerControlMode === ReaderControlMode.DOCUMENT_CONTROLS && (
             <button
                 onClick={() => { triggerHaptic('medium'); onAskPineX(); }}
                 className={clsx(
-                    "absolute bottom-24 right-4 p-4 rounded-full shadow-2xl transition-transform duration-300 active:scale-95 z-40 border-2",
+                    "absolute bottom-28 right-5 w-16 h-16 rounded-full shadow-2xl transition-transform duration-300 active:scale-95 z-40 flex items-center justify-center",
                     isHighContrast 
-                        ? "bg-yellow-300 text-black border-white"
-                        : "bg-blue-600 text-white border-transparent hover:bg-blue-700"
+                        ? "bg-yellow-300 text-black border-4 border-white"
+                        : "bg-black text-[#FFC107] dark:bg-[#FFC107] dark:text-black hover:scale-105"
                 )}
                 aria-label="Ask Pine-X Chat Assistant"
             >
-                <MessageSquareText className="w-6 h-6 fill-current" />
+                <MessageSquareText className="w-8 h-8 fill-current" />
             </button>
         )}
     </div>

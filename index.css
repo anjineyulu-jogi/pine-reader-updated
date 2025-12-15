@@ -4,18 +4,17 @@
 @tailwind utilities;
 
 /* ACCESSIBILITY: High Visibility Focus Rings */
-/* Replaces default browser outline with a thick, high-contrast ring */
 *:focus-visible {
-  outline: 4px solid #1a73e8; /* Google Blue */
+  outline: 4px solid #1a73e8;
   outline-offset: 4px;
-  border-radius: 4px;
+  border-radius: 8px;
   z-index: 50;
 }
 
 .high-contrast *:focus-visible {
-  outline: 6px solid #FFFF00; /* Yellow */
+  outline: 6px solid #FFFF00;
   outline-offset: 4px;
-  box-shadow: 0 0 0 8px #000000; /* Black outer ring for double contrast */
+  box-shadow: 0 0 0 8px #000000;
 }
 
 /* Touch Target Helper - Ensures 48px min size */
@@ -39,8 +38,21 @@
 
 /* Typography Improvements */
 body {
-  font-size: 18px; /* Slightly larger base font */
+  font-size: 18px; /* Large base font */
   line-height: 1.6;
+}
+
+/* --- DESIGN SYSTEM UTILITIES --- */
+@layer components {
+  /* Standard Card Style */
+  .pine-card {
+    @apply rounded-3xl p-5 transition-all duration-300;
+  }
+  
+  /* Primary Button Gradient/Solid */
+  .btn-primary {
+    @apply bg-[#FFC107] text-black font-bold rounded-3xl shadow-sm hover:bg-[#ffca2c] active:scale-95 transition-transform;
+  }
 }
 
 /* Semantic Content Styling (Reader View) */
@@ -52,21 +64,21 @@ body {
   margin-bottom: 1.2em; 
   line-height: 1.8; 
   text-align: left; 
-  max-width: 65ch; /* Optimal reading width */
+  max-width: 65ch; 
 }
 
 /* Responsive Images in Reader */
 .semantic-content img {
     max-width: 100%;
     height: auto;
-    border-radius: 8px;
+    border-radius: 1.5rem; /* rounded-3xl */
     margin: 1.5em 0;
     display: block;
     border: 1px solid #eee;
 }
 
 .high-contrast .semantic-content img {
-    border: 2px solid #FFFF00;
+    border: 4px solid #FFFF00;
 }
 
 /* Accessible Tables */
@@ -77,12 +89,12 @@ body {
   margin: 1.5em 0; 
   font-size: 1em;
   border: 1px solid currentColor;
-  border-radius: 8px;
+  border-radius: 1.5rem;
   overflow: hidden;
 }
 .semantic-content th, .semantic-content td { 
   border: 1px solid #ccc; 
-  padding: 12px 16px; /* Larger hit area for cells */
+  padding: 16px; 
   text-align: left; 
 }
 .semantic-content th { background-color: #e8f0fe; font-weight: 800; color: #174ea6; }
@@ -94,15 +106,13 @@ body {
 .high-contrast .semantic-content table, 
 .high-contrast .semantic-content th, 
 .high-contrast .semantic-content td {
-  border: 2px solid #FFFF00;
+  border: 4px solid #FFFF00;
   background: black;
   color: #FFFF00;
 }
 
-.semantic-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-.semantic-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
-.semantic-content a { color: #1a73e8; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; font-weight: 700; }
-.high-contrast .semantic-content a { color: #00FF00; text-decoration-style: dashed; }
+.semantic-content a { color: #1a73e8; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; font-weight: 700; }
+.high-contrast .semantic-content a { color: #FFFF00; text-decoration-style: dashed; }
 
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
@@ -115,36 +125,9 @@ body {
   canvas { display: none !important; }
 }
 
-/* --- FLAGSHIP UI TRANSITIONS --- */
-
+/* --- ANIMATIONS --- */
 @layer utilities {
   .transition-all-300 {
     transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
-  .slide-in-right {
-    animation: slideInFromRight 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .slide-in-up {
-    animation: slideInFromBottom 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-}
-
-@keyframes slideInFromRight {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes slideInFromBottom {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-/* Loading Spinner Animation */
-@keyframes spin-slow {
-  to { transform: rotate(360deg); }
-}
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
 }
